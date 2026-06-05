@@ -6,7 +6,7 @@ function secret() {
   return new TextEncoder().encode(process.env.ADMIN_SECRET ?? "change-me");
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAdminPage = pathname.startsWith("/admin");
