@@ -110,7 +110,7 @@ export default function Leaderboard({ entries }: Props) {
 
       {entries[0]?.fetched_at && (
         <p className="text-white/20 text-xs text-right mt-4">
-          마지막 갱신: {new Date(entries[0].fetched_at).toLocaleString("ko-KR")}
+          마지막 갱신: {new Date(entries[0].fetched_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST
         </p>
       )}
     </div>
