@@ -22,8 +22,8 @@ export async function updateAllRanks() {
   const results = { success: 0, failed: 0, errors: [] as string[] };
 
   for (let i = 0; i < typedPlayers.length; i++) {
-    // PUBG API 레이트 리밋: 분당 10요청 → 7초 간격
-    if (i > 0) await new Promise((r) => setTimeout(r, 7000));
+    // PUBG API 레이트 리밋: 분당 10요청 → 6.5초 간격 (최소 6초, 0.5초 버퍼)
+    if (i > 0) await new Promise((r) => setTimeout(r, 6500));
 
     const player = typedPlayers[i];
     try {

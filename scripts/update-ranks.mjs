@@ -4,7 +4,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PUBG_KEY = process.env.PUBG_API_KEY;
 
-const DELAY_MS = 7000; // PUBG API: 분당 10요청 제한
+const DELAY_MS = 6500; // PUBG API: 분당 10요청 제한 (최소 6초, 0.5초 버퍼)
 
 const pubgHeaders = {
   Authorization: `Bearer ${PUBG_KEY}`,
