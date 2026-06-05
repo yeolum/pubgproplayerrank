@@ -23,12 +23,16 @@ function rankBadge(pos: number) {
   return `#${pos}`;
 }
 
-interface Props {
-  entries: LeaderboardEntry[];
-  mode: string;
+function avgDamage(damage: number | null, rounds: number | null): string {
+  if (!damage || !rounds || rounds === 0) return "—";
+  return Math.round(damage / rounds).toLocaleString();
 }
 
-export default function Leaderboard({ entries, mode }: Props) {
+interface Props {
+  entries: LeaderboardEntry[];
+}
+
+export default function Leaderboard({ entries }: Props) {
   if (entries.length === 0) {
     return (
       <div className="card text-center py-16 text-white/40">
@@ -39,17 +43,20 @@ export default function Leaderboard({ entries, mode }: Props) {
 
   return (
     <div className="card overflow-x-auto">
-      <table className="w-full">
+      <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-white/40 text-xs uppercase tracking-wider border-b border-white/10">
             <th className="pb-3 pr-4 w-10">순위</th>
             <th className="pb-3 pr-4">팀</th>
             <th className="pb-3 pr-4">선수명</th>
-            <th className="pb-3 pr-4">티어</th>
-            <th className="pb-3 pr-4 text-right">RP</th>
+            <th className="pb-3 pr-4">현재 티어</th>
+            <th className="pb-3 pr-4 text-right">현재 RP</th>
+            <th className="pb-3 pr-4">최고 티어</th>
+            <th className="pb-3 pr-4 text-right">최고 RP</th>
+            <th className="pb-3 pr-4 text-right">게임</th>
             <th className="pb-3 pr-4 text-right">승리</th>
-            <th className="pb-3 pr-4 text-right">KDA</th>
-            <th className="pb-3 text-right">게임 수</th>
+            <th className="pb-3 pr-4 text-right">킬</th>
+            <th className="pb-3 text-right">평균 데미지</th>
           </tr>
         </thead>
         <tbody>
@@ -59,37 +66,41 @@ export default function Leaderboard({ entries, mode }: Props) {
               className="border-b border-white/5 hover:bg-white/5 transition-colors"
             >
               <td className="py-4 pr-4">
-                <span className={`font-bold ${i < 3 ? "text-lg" : "text-white/50 text-sm"}`}>
+                <span className={`font-bold ${i < 3 ? "text-lg" : "text-white/40 text-sm"}`}>
                   {rankBadge(i + 1)}
                 </span>
               </td>
-              <td className="py-4 pr-4">
-                <span className="text-white/60 text-sm">{entry.team_name}</span>
-              </td>
+              <td className="py-4 pr-4 text-white/60 text-sm">{entry.team_name}</td>
               <td className="py-4 pr-4">
                 <span className="text-white font-semibold">{entry.player_name}</span>
-                <span className="text-white/30 text-xs block font-mono">
-                  {entry.steam_username}
-                </span>
               </td>
               <td className={`py-4 pr-4 font-bold ${tierColor(entry.current_tier)}`}>
                 {entry.current_tier ?? (
-                  <span className="text-white/20 font-normal text-sm">미플레이</span>
+                  <span className="text-white/20 font-normal">미플레이</span>
                 )}
               </td>
               <td className="py-4 pr-4 text-right">
-                <span className="text-white font-black text-lg">
+                <span className="text-white font-black text-base">
                   {entry.current_rp !== null ? entry.current_rp.toLocaleString() : "—"}
                 </span>
+              </td>
+              <td className={`py-4 pr-4 text-sm ${tierColor(entry.best_tier)}`}>
+                {entry.best_tier ?? "—"}
+              </td>
+              <td className="py-4 pr-4 text-right text-white/60">
+                {entry.best_rp !== null ? entry.best_rp.toLocaleString() : "—"}
+              </td>
+              <td className="py-4 pr-4 text-right text-white/50">
+                {entry.rounds_played ?? "—"}
               </td>
               <td className="py-4 pr-4 text-right text-white/70">
                 {entry.wins ?? "—"}
               </td>
               <td className="py-4 pr-4 text-right text-white/70">
-                {entry.kda !== null ? Number(entry.kda).toFixed(2) : "—"}
+                {entry.kills ?? "—"}
               </td>
-              <td className="py-4 text-right text-white/50 text-sm">
-                {entry.rounds_played ?? "—"}
+              <td className="py-4 text-right text-white/70">
+                {avgDamage(entry.damage_dealt, entry.rounds_played)}
               </td>
             </tr>
           ))}

@@ -5,8 +5,6 @@ import { useRouter, usePathname } from "next/navigation";
 const MODES = [
   { value: "squad-fpp", label: "스쿼드 FPP" },
   { value: "squad", label: "스쿼드 TPP" },
-  { value: "solo-fpp", label: "솔로 FPP" },
-  { value: "solo", label: "솔로 TPP" },
 ];
 
 export default function ModeSelector({ currentMode }: { currentMode: string }) {
@@ -14,7 +12,7 @@ export default function ModeSelector({ currentMode }: { currentMode: string }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2">
       {MODES.map((m) => (
         <button
           key={m.value}

@@ -19,7 +19,7 @@ export default async function Home({ searchParams }: Props) {
         <p className="text-white/40 text-sm mt-1">매 시간 자동 갱신됩니다.</p>
       </div>
       <ModeSelector currentMode={mode} />
-      <Leaderboard entries={entries} mode={mode} />
+      <Leaderboard entries={entries} />
     </div>
   );
 }

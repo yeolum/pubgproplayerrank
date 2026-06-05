@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { getPlayer } from "@/lib/pubg";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const id = Number(params.id);
-  const { team_name, player_name, steam_username, is_active } = await req.json();
+  const rowId = Number(params.id);
+  const { team_name, player_name, pubg_account_id, is_active } = await req.json();
 
   const update: Record<string, unknown> = {
     team_name,
@@ -16,20 +15,16 @@ export async function PUT(
     updated_at: new Date().toISOString(),
   };
 
-  if (steam_username) {
-    update.steam_username = steam_username;
-    try {
-      const player = await getPlayer(steam_username, "steam");
-      update.pubg_player_id = player.id;
-    } catch {
-      update.pubg_player_id = null;
-    }
+  if (pubg_account_id?.trim()) {
+    const id = pubg_account_id.trim();
+    update.steam_username = id;
+    update.pubg_player_id = id;
   }
 
   const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .update(update)
-    .eq("id", id)
+    .eq("id", rowId)
     .select()
     .single();
 
@@ -41,12 +36,12 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const id = Number(params.id);
+  const rowId = Number(params.id);
 
   const { error } = await getSupabaseAdmin()
     .from("Steam_players")
     .delete()
-    .eq("id", id);
+    .eq("id", rowId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });

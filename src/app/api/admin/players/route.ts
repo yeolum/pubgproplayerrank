@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { getPlayer } from "@/lib/pubg";
 
 export async function GET() {
   const { data, error } = await getSupabaseAdmin()
@@ -14,27 +13,21 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { team_name, player_name, steam_username } = await req.json();
+  const { team_name, player_name, pubg_account_id } = await req.json();
 
-  if (!team_name?.trim() || !player_name?.trim() || !steam_username?.trim()) {
+  if (!team_name?.trim() || !player_name?.trim() || !pubg_account_id?.trim()) {
     return NextResponse.json({ error: "모든 필드를 입력해주세요." }, { status: 400 });
   }
 
-  let pubg_player_id: string | null = null;
-  try {
-    const player = await getPlayer(steam_username.trim(), "steam");
-    pubg_player_id = player.id;
-  } catch {
-    // PUBG ID 조회 실패해도 저장 (크론에서 재시도)
-  }
+  const id = pubg_account_id.trim();
 
   const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .insert({
       team_name: team_name.trim(),
       player_name: player_name.trim(),
-      steam_username: steam_username.trim(),
-      pubg_player_id,
+      steam_username: id,   // unique 제약 유지용
+      pubg_player_id: id,
     })
     .select()
     .single();
@@ -42,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     if (error.code === "23505") {
       return NextResponse.json(
-        { error: "이미 등록된 스팀 아이디입니다." },
+        { error: "이미 등록된 PUBG 계정 ID입니다." },
         { status: 409 }
       );
     }

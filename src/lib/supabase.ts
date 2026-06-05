@@ -26,7 +26,25 @@ export function getSupabaseAdmin(): any {
 export async function upsertPlayerRecord(record: DbPlayerRecord) {
   const { error } = await getSupabaseAdmin()
     .from("Steam_player_ranks")
-    .upsert(record, { onConflict: "player_id,season,mode" });
+    .upsert(
+      {
+        player_id: record.player_id,
+        player_name: record.player_name,
+        platform: record.platform,
+        season: record.season,
+        mode: record.mode,
+        current_rp: record.current_rp,
+        best_rp: record.best_rp,
+        current_tier: record.current_tier,
+        best_tier: record.best_tier,
+        rounds_played: record.rounds_played,
+        wins: record.wins,
+        kills: record.kills,
+        damage_dealt: record.damage_dealt,
+        fetched_at: record.fetched_at,
+      },
+      { onConflict: "player_id,season,mode" }
+    );
 
   if (error) throw new Error(`Supabase upsert 실패: ${error.message}`);
 }

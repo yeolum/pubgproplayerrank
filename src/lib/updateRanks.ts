@@ -1,12 +1,10 @@
 import { getSupabaseAdmin, upsertPlayerRecord } from "./supabase";
-import { getPlayerRankedStats, getCurrentSeason, getPlayer } from "./pubg";
+import { getPlayerRankedStats, getCurrentSeason } from "./pubg";
 import type { SteamPlayer } from "@/types";
 
 const MODES = [
   { key: "squadFpp" as const, mode: "squad-fpp" },
   { key: "squadTpp" as const, mode: "squad" },
-  { key: "soloFpp" as const, mode: "solo-fpp" },
-  { key: "soloTpp" as const, mode: "solo" },
 ];
 
 export async function updateAllRanks() {
@@ -25,19 +23,13 @@ export async function updateAllRanks() {
 
   for (const player of typedPlayers) {
     try {
-      let playerId: string | null = player.pubg_player_id;
-
-      if (!playerId) {
-        const found = await getPlayer(player.steam_username, "steam");
-        playerId = found.id;
-        await getSupabaseAdmin()
-          .from("Steam_players")
-          .update({ pubg_player_id: playerId, updated_at: new Date().toISOString() })
-          .eq("id", player.id);
+      if (!player.pubg_player_id) {
+        results.errors.push(`${player.player_name}: PUBG 계정 ID 미등록`);
+        results.failed++;
+        continue;
       }
 
-      // if 블록에서 할당했으므로 이 시점에는 항상 string
-      const resolvedId = playerId as string;
+      const resolvedId = player.pubg_player_id;
       const rankData = await getPlayerRankedStats(resolvedId, "steam", season);
 
       for (const { key, mode } of MODES) {
@@ -54,9 +46,9 @@ export async function updateAllRanks() {
           current_tier: `${stats.currentTier.tier} ${stats.currentTier.subTier}`,
           best_tier: `${stats.bestTier.tier} ${stats.bestTier.subTier}`,
           rounds_played: stats.roundsPlayed,
-          kills: stats.kills,
           wins: stats.wins,
-          kda: stats.kda,
+          kills: stats.kills,
+          damage_dealt: stats.damageDealt,
           fetched_at: rankData.fetchedAt,
         });
       }

@@ -8,31 +8,6 @@ const headers = {
   Accept: "application/vnd.api+json",
 };
 
-export async function getPlayer(
-  name: string,
-  platform: Platform = "steam"
-): Promise<PubgPlayer> {
-  const res = await fetch(
-    `${PUBG_API_BASE}/${platform}/players?filter[playerNames]=${encodeURIComponent(name)}`,
-    { headers, next: { revalidate: 60 } }
-  );
-
-  if (!res.ok) {
-    if (res.status === 404) throw new Error("플레이어를 찾을 수 없습니다.");
-    throw new Error(`PUBG API 오류: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const player = data.data?.[0];
-  if (!player) throw new Error("플레이어를 찾을 수 없습니다.");
-
-  return {
-    id: player.id,
-    name: player.attributes.name,
-    platform,
-  };
-}
-
 export async function getCurrentSeason(platform: Platform = "steam"): Promise<string> {
   const res = await fetch(`${PUBG_API_BASE}/${platform}/seasons`, {
     headers,
@@ -61,12 +36,9 @@ function parseRankedStats(modeData: Record<string, unknown> | null): RankedStats
     currentTier: stats.currentTier as { tier: import("@/types").RankTier; subTier: string },
     bestTier: stats.bestTier as { tier: import("@/types").RankTier; subTier: string },
     roundsPlayed: stats.roundsPlayed as number,
-    kills: stats.kills as number,
-    assists: stats.assists as number,
     wins: stats.wins as number,
-    top10s: stats.top10s as number,
-    kda: stats.kda as number,
-    avgRank: stats.avgRank as number,
+    kills: stats.kills as number,
+    damageDealt: stats.damageDealt as number,
   };
 }
 
@@ -97,8 +69,6 @@ export async function getPlayerRankedStats(
     season: seasonId,
     squadFpp: parseRankedStats(attrs["squad-fpp"] ?? null),
     squadTpp: parseRankedStats(attrs["squad"] ?? null),
-    soloFpp: parseRankedStats(attrs["solo-fpp"] ?? null),
-    soloTpp: parseRankedStats(attrs["solo"] ?? null),
     fetchedAt: new Date().toISOString(),
   };
 }

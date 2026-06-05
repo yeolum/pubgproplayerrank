@@ -21,12 +21,9 @@ export interface RankedStats {
   currentTier: { tier: RankTier; subTier: string };
   bestTier: { tier: RankTier; subTier: string };
   roundsPlayed: number;
-  kills: number;
-  assists: number;
   wins: number;
-  top10s: number;
-  kda: number;
-  avgRank: number;
+  kills: number;
+  damageDealt: number;
 }
 
 export interface PlayerRankData {
@@ -36,8 +33,6 @@ export interface PlayerRankData {
   season: string;
   squadFpp: RankedStats | null;
   squadTpp: RankedStats | null;
-  soloFpp: RankedStats | null;
-  soloTpp: RankedStats | null;
   fetchedAt: string;
 }
 
@@ -53,9 +48,9 @@ export interface DbPlayerRecord {
   current_tier: string;
   best_tier: string;
   rounds_played: number;
-  kills: number;
   wins: number;
-  kda: number;
+  kills: number;
+  damage_dealt: number;
   fetched_at: string;
   created_at?: string;
 }
@@ -79,7 +74,7 @@ export interface LeaderboardEntry extends SteamPlayer {
   rounds_played: number | null;
   wins: number | null;
   kills: number | null;
-  kda: number | null;
+  damage_dealt: number | null;
   season: string | null;
   fetched_at: string | null;
 }
