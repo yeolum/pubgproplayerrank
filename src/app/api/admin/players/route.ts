@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "모든 필드를 입력해주세요." }, { status: 400 });
   }
 
-  const id = pubg_account_id.trim();
+  const raw = pubg_account_id.trim();
+  const id = raw.startsWith("account.") ? raw : `account.${raw}`;
 
   const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")

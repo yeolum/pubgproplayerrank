@@ -112,7 +112,7 @@ export default function AdminPage() {
           <input
             value={addForm.pubg_account_id}
             onChange={(e) => setAddForm({ ...addForm, pubg_account_id: e.target.value })}
-            placeholder="PUBG 계정 ID (account.xxxx)"
+            placeholder="PUBG 계정 ID (account. 없이 입력 가능)"
             required
             className="input flex-1 font-mono text-xs"
           />

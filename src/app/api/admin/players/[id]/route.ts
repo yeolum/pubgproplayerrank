@@ -17,7 +17,8 @@ export async function PUT(
   };
 
   if (pubg_account_id?.trim()) {
-    const accountId = pubg_account_id.trim();
+    const raw = pubg_account_id.trim();
+    const accountId = raw.startsWith("account.") ? raw : `account.${raw}`;
     update.steam_username = accountId;
     update.pubg_player_id = accountId;
   }
