@@ -9,7 +9,8 @@ export async function PUT(
   const id = Number(params.id);
   const { team_name, player_name, steam_username, is_active } = await req.json();
 
-  const update: Record<string, unknown> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const update: Record<string, any> = {
     team_name,
     player_name,
     is_active,
