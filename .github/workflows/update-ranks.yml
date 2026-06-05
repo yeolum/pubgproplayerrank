@@ -1,0 +1,16 @@
+name: Update PUBG RP Rankings
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # 매 시간 정각 (UTC)
+  workflow_dispatch:        # 수동 실행 버튼
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger RP update
+        run: |
+          curl -f -X GET "${{ secrets.VERCEL_URL }}/api/cron/update-ranks" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 60
