@@ -14,7 +14,6 @@ export async function middleware(request: NextRequest) {
 
   if (!isAdminPage && !isAdminApi) return NextResponse.next();
 
-  // 로그인 페이지와 로그인/로그아웃 API는 통과
   if (
     pathname === "/admin/login" ||
     pathname === "/api/admin/login" ||

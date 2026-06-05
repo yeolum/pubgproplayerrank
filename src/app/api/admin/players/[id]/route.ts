@@ -3,9 +3,10 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const rowId = Number(params.id);
+  const { id } = await params;
+  const rowId = Number(id);
   const { team_name, player_name, pubg_account_id, is_active } = await req.json();
 
   const update: Record<string, unknown> = {
@@ -16,9 +17,9 @@ export async function PUT(
   };
 
   if (pubg_account_id?.trim()) {
-    const id = pubg_account_id.trim();
-    update.steam_username = id;
-    update.pubg_player_id = id;
+    const accountId = pubg_account_id.trim();
+    update.steam_username = accountId;
+    update.pubg_player_id = accountId;
   }
 
   const { data, error } = await getSupabaseAdmin()
@@ -34,9 +35,10 @@ export async function PUT(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const rowId = Number(params.id);
+  const { id } = await params;
+  const rowId = Number(id);
 
   const { error } = await getSupabaseAdmin()
     .from("Steam_players")
