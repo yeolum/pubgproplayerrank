@@ -1,10 +1,11 @@
-// Node.js 18+ 네이티브 fetch 사용 — 타임아웃 없이 55명 이상 처리 가능
+// Node.js 18+ 네이티브 fetch 사용
 const PUBG_BASE = "https://api.pubg.com/shards/steam";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PUBG_KEY = process.env.PUBG_API_KEY;
 
-const DELAY_MS = 6500; // PUBG API: 분당 10요청 제한 (최소 6초, 0.5초 버퍼)
+const BATCH_SIZE = 10;        // PUBG API 분당 10요청 제한
+const BATCH_DELAY_MS = 62000; // 배치 간 62초 대기 (60초 + 2초 버퍼)
 
 const pubgHeaders = {
   Authorization: `Bearer ${PUBG_KEY}`,
@@ -17,9 +18,7 @@ const sbHeaders = {
   "Content-Type": "application/json",
 };
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function getCurrentSeason() {
   const res = await fetch(`${PUBG_BASE}/seasons`, { headers: pubgHeaders });
@@ -57,10 +56,7 @@ async function upsertRecords(records) {
       body: JSON.stringify(records),
     }
   );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`upsert 실패: ${err}`);
-  }
+  if (!res.ok) throw new Error(`upsert 실패: ${await res.text()}`);
 }
 
 function parseStats(modeData) {
@@ -77,72 +73,91 @@ function parseStats(modeData) {
   };
 }
 
+async function processPlayer(player, season, fetchedAt) {
+  if (!player.pubg_player_id) throw new Error("PUBG 계정 ID 미등록");
+
+  const data = await getRankedStats(player.pubg_player_id, season);
+  const modeStats = data.data?.attributes?.rankedGameModeStats ?? {};
+
+  const MODES = [
+    { key: "squad-fpp", field: "squad-fpp" },
+    { key: "squad",     field: "squad" },
+  ];
+
+  const records = [];
+  for (const { key, field } of MODES) {
+    const stats = parseStats(modeStats[field]);
+    if (!stats) continue;
+    records.push({
+      player_id:     player.pubg_player_id,
+      player_name:   player.steam_username,
+      platform:      "steam",
+      season,
+      mode:          key,
+      current_rp:    stats.currentRankPoint,
+      best_rp:       stats.bestRankPoint,
+      current_tier:  `${stats.currentTier.tier} ${stats.currentTier.subTier}`,
+      best_tier:     `${stats.bestTier.tier} ${stats.bestTier.subTier}`,
+      rounds_played: stats.roundsPlayed,
+      wins:          stats.wins,
+      kills:         stats.kills,
+      kda:           0,
+      damage_dealt:  stats.damageDealt,
+      fetched_at:    fetchedAt,
+    });
+  }
+
+  if (records.length > 0) await upsertRecords(records);
+}
+
 async function main() {
   console.log("▶ PUBG RP 갱신 시작");
 
   const [season, players] = await Promise.all([getCurrentSeason(), getActivePlayers()]);
-  console.log(`시즌: ${season} | 선수: ${players.length}명`);
+  const totalBatches = Math.ceil(players.length / BATCH_SIZE);
+  console.log(`시즌: ${season} | 선수: ${players.length}명 | 배치: ${totalBatches}개 (${BATCH_SIZE}명씩)`);
 
   const fetchedAt = new Date().toISOString();
   let success = 0;
   let failed = 0;
+  const errors = [];
 
-  for (let i = 0; i < players.length; i++) {
-    const player = players[i];
+  for (let i = 0; i < players.length; i += BATCH_SIZE) {
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const batch = players.slice(i, i + BATCH_SIZE);
 
     if (i > 0) {
-      process.stdout.write(`  [딜레이 ${DELAY_MS / 1000}초]\n`);
-      await sleep(DELAY_MS);
+      console.log(`\n  ⏳ 다음 배치까지 ${BATCH_DELAY_MS / 1000}초 대기...`);
+      await sleep(BATCH_DELAY_MS);
     }
 
-    if (!player.pubg_player_id) {
-      console.log(`  ✗ ${player.player_name}: PUBG 계정 ID 미등록`);
-      failed++;
-      continue;
-    }
+    console.log(`\n[배치 ${batchNum}/${totalBatches}] ${batch.length}명 병렬 처리 중...`);
 
-    try {
-      const data = await getRankedStats(player.pubg_player_id, season);
-      const modeStats = data.data?.attributes?.rankedGameModeStats ?? {};
+    const results = await Promise.allSettled(
+      batch.map((player) => processPlayer(player, season, fetchedAt))
+    );
 
-      const MODES = [
-        { key: "squad-fpp", field: "squad-fpp" },
-        { key: "squad",     field: "squad" },
-      ];
-
-      const records = [];
-      for (const { key, field } of MODES) {
-        const stats = parseStats(modeStats[field]);
-        if (!stats) continue;
-        records.push({
-          player_id:     player.pubg_player_id,
-          player_name:   player.steam_username,
-          platform:      "steam",
-          season,
-          mode:          key,
-          current_rp:    stats.currentRankPoint,
-          best_rp:       stats.bestRankPoint,
-          current_tier:  `${stats.currentTier.tier} ${stats.currentTier.subTier}`,
-          best_tier:     `${stats.bestTier.tier} ${stats.bestTier.subTier}`,
-          rounds_played: stats.roundsPlayed,
-          wins:          stats.wins,
-          kills:         stats.kills,
-          kda:           0,
-          damage_dealt:  stats.damageDealt,
-          fetched_at:    fetchedAt,
-        });
+    for (const [j, result] of results.entries()) {
+      const player = batch[j];
+      if (result.status === "fulfilled") {
+        console.log(`  ✓ ${player.player_name}`);
+        success++;
+      } else {
+        const msg = result.reason?.message ?? "알 수 없는 오류";
+        console.log(`  ✗ ${player.player_name}: ${msg}`);
+        failed++;
+        errors.push(`${player.player_name}: ${msg}`);
       }
-
-      if (records.length > 0) await upsertRecords(records);
-      console.log(`  ✓ ${player.player_name} (${i + 1}/${players.length})`);
-      success++;
-    } catch (e) {
-      console.log(`  ✗ ${player.player_name}: ${e.message}`);
-      failed++;
     }
   }
 
-  console.log(`\n완료: 성공 ${success}명 / 실패 ${failed}명`);
+  console.log(`\n${"─".repeat(40)}`);
+  console.log(`완료: 성공 ${success}명 / 실패 ${failed}명`);
+  if (errors.length > 0) {
+    console.log("실패 목록:");
+    errors.forEach((e) => console.log(`  - ${e}`));
+  }
+
   if (failed > 0) process.exit(1);
 }
 
