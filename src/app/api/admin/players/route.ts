@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { getPlayer } from "@/lib/pubg";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .select("*")
     .order("team_name")
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // PUBG ID 조회 실패해도 저장 (크론에서 재시도)
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .insert({
       team_name: team_name.trim(),

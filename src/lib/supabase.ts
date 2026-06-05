@@ -1,17 +1,28 @@
 import { createClient } from "@supabase/supabase-js";
 import type { DbPlayerRecord, LeaderboardEntry, SteamPlayer } from "@/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// 모듈 로드 시점이 아닌 첫 호출 시점에 초기화 (빌드 타임 오류 방지)
+let _supabase: ReturnType<typeof createClient> | null = null;
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+export function getSupabase() {
+  return (_supabase ??= createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ));
+}
+
+export function getSupabaseAdmin() {
+  return (_supabaseAdmin ??= createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  ));
+}
 
 // ── RP 기록 ─────────────────────────────────────────────
 
 export async function upsertPlayerRecord(record: DbPlayerRecord) {
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from("Steam_player_ranks")
     .upsert(record, { onConflict: "player_id,season,mode" });
 
@@ -21,7 +32,7 @@ export async function upsertPlayerRecord(record: DbPlayerRecord) {
 // ── 리더보드 ─────────────────────────────────────────────
 
 export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEntry[]> {
-  const { data: players, error: pe } = await supabase
+  const { data: players, error: pe } = await getSupabase()
     .from("Steam_players")
     .select("*")
     .eq("is_active", true)
@@ -38,7 +49,7 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
   let rankMap = new Map<string, DbPlayerRecord>();
 
   if (pubgIds.length > 0) {
-    const { data: ranks } = await supabase
+    const { data: ranks } = await getSupabase()
       .from("Steam_player_ranks")
       .select("*")
       .eq("mode", mode)
@@ -78,7 +89,7 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
 // ── 선수 관리 (어드민) ─────────────────────────────────
 
 export async function getAllPlayers(): Promise<SteamPlayer[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .select("*")
     .order("team_name")

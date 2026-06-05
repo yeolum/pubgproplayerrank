@@ -1,4 +1,4 @@
-import { supabaseAdmin, upsertPlayerRecord } from "./supabase";
+import { getSupabaseAdmin, upsertPlayerRecord } from "./supabase";
 import { getPlayerRankedStats, getCurrentSeason, getPlayer } from "./pubg";
 
 const MODES = [
@@ -9,7 +9,7 @@ const MODES = [
 ];
 
 export async function updateAllRanks() {
-  const { data: players, error } = await supabaseAdmin
+  const { data: players, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .select("*")
     .eq("is_active", true);
@@ -27,7 +27,7 @@ export async function updateAllRanks() {
       if (!playerId) {
         const found = await getPlayer(player.steam_username, "steam");
         playerId = found.id;
-        await supabaseAdmin
+        await getSupabaseAdmin()
           .from("Steam_players")
           .update({ pubg_player_id: playerId, updated_at: new Date().toISOString() })
           .eq("id", player.id);

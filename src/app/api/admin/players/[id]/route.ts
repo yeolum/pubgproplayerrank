@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { getPlayer } from "@/lib/pubg";
 
 export async function PUT(
@@ -26,7 +26,7 @@ export async function PUT(
     }
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .update(update)
     .eq("id", id)
@@ -43,7 +43,7 @@ export async function DELETE(
 ) {
   const id = Number(params.id);
 
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from("Steam_players")
     .delete()
     .eq("id", id);
