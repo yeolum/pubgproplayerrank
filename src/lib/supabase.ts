@@ -94,7 +94,7 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
       rounds_played: rank?.rounds_played ?? null,
       wins: rank?.wins ?? null,
       kills: rank?.kills ?? null,
-      kda: rank?.kda ?? null,
+      damage_dealt: rank?.damage_dealt ?? null,
       season: rank?.season ?? null,
       fetched_at: rank?.fetched_at ?? null,
     };
