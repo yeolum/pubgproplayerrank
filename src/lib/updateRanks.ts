@@ -1,5 +1,6 @@
 import { getSupabaseAdmin, upsertPlayerRecord } from "./supabase";
 import { getPlayerRankedStats, getCurrentSeason, getPlayer } from "./pubg";
+import type { SteamPlayer } from "@/types";
 
 const MODES = [
   { key: "squadFpp" as const, mode: "squad-fpp" },
@@ -15,12 +16,14 @@ export async function updateAllRanks() {
     .eq("is_active", true);
 
   if (error) throw error;
-  if (!players?.length) return { success: 0, failed: 0, errors: [] as string[] };
+
+  const typedPlayers = (players ?? []) as SteamPlayer[];
+  if (!typedPlayers.length) return { success: 0, failed: 0, errors: [] as string[] };
 
   const season = await getCurrentSeason("steam");
   const results = { success: 0, failed: 0, errors: [] as string[] };
 
-  for (const player of players) {
+  for (const player of typedPlayers) {
     try {
       let playerId: string = player.pubg_player_id;
 

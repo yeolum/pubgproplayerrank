@@ -34,7 +34,7 @@ export async function upsertPlayerRecord(record: DbPlayerRecord) {
 // ── 리더보드 ─────────────────────────────────────────────
 
 export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEntry[]> {
-  const { data: players, error: pe } = await getSupabase()
+  const { data: rawPlayers, error: pe } = await getSupabase()
     .from("Steam_players")
     .select("*")
     .eq("is_active", true)
@@ -42,28 +42,30 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
     .order("player_name");
 
   if (pe) throw new Error(`선수 조회 실패: ${pe.message}`);
-  if (!players?.length) return [];
+
+  const players = (rawPlayers ?? []) as SteamPlayer[];
+  if (!players.length) return [];
 
   const pubgIds = players
-    .map((p) => p.pubg_player_id)
+    .map((p: SteamPlayer) => p.pubg_player_id)
     .filter(Boolean) as string[];
 
-  let rankMap = new Map<string, DbPlayerRecord>();
+  const rankMap = new Map<string, DbPlayerRecord>();
 
   if (pubgIds.length > 0) {
-    const { data: ranks } = await getSupabase()
+    const { data: rawRanks } = await getSupabase()
       .from("Steam_player_ranks")
       .select("*")
       .eq("mode", mode)
       .in("player_id", pubgIds)
       .order("fetched_at", { ascending: false });
 
-    for (const r of ranks ?? []) {
+    for (const r of (rawRanks ?? []) as DbPlayerRecord[]) {
       if (!rankMap.has(r.player_id)) rankMap.set(r.player_id, r);
     }
   }
 
-  const merged: LeaderboardEntry[] = players.map((p) => {
+  const merged: LeaderboardEntry[] = players.map((p: SteamPlayer) => {
     const rank = p.pubg_player_id ? rankMap.get(p.pubg_player_id) ?? null : null;
     return {
       ...p,
@@ -98,5 +100,5 @@ export async function getAllPlayers(): Promise<SteamPlayer[]> {
     .order("player_name");
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []) as SteamPlayer[];
 }
