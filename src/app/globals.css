@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0D0D1A;
+  --foreground: #EDEDED;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply bg-pubg-card rounded-xl border border-white/10 p-6;
+  }
+
+  .btn-primary {
+    @apply bg-pubg-gold hover:bg-yellow-400 text-pubg-darker font-bold px-6 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg transition-colors;
+  }
+
+  .input {
+    @apply bg-pubg-darker border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-pubg-gold transition-colors text-sm;
+  }
+}
