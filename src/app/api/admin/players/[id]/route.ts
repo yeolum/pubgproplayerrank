@@ -27,7 +27,8 @@ export async function PUT(
     }
   }
 
-  const { data, error } = await getSupabaseAdmin()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseAdmin() as any)
     .from("Steam_players")
     .update(update)
     .eq("id", id)
