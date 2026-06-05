@@ -8,9 +8,18 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30     # 55명 × 7초 = ~7분, 여유있게 30분
+
     steps:
-      - name: Trigger RP update
-        run: |
-          curl -f -X GET "${{ secrets.VERCEL_URL }}/api/cron/update-ranks" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            --max-time 60
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Update PUBG RP rankings
+        env:
+          PUBG_API_KEY: ${{ secrets.PUBG_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/update-ranks.mjs
