@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default async function Home({ searchParams }: Props) {
-  const mode = searchParams.mode ?? "squad-fpp";
+  const mode = searchParams.mode ?? "squad";
   const entries = await getLeaderboard(mode);
 
   return (
