@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [editActive, setEditActive] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
+  const [runUrl, setRunUrl] = useState("");
 
   const fetchPlayers = useCallback(async () => {
     setLoading(true);
@@ -77,12 +78,12 @@ export default function AdminPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     setRefreshMsg("");
-    const res = await fetch("/api/admin/refresh-ranks", { method: "POST" });
+    setRunUrl("");
+    const res = await fetch("/api/admin/trigger-workflow", { method: "POST" });
     const d = await res.json();
     if (res.ok) {
-      setRefreshMsg(`완료: 성공 ${d.success}명 / 실패 ${d.failed}명 (시즌: ${d.season})`);
-      if (d.errors?.length) setRefreshMsg((m) => m + ` | ${d.errors.join(", ")}`);
-      await fetchPlayers();
+      setRefreshMsg("GitHub Actions 실행 시작됨 — 약 5분 소요");
+      setRunUrl(d.runUrl);
     } else {
       setRefreshMsg(`오류: ${d.error}`);
     }
@@ -126,9 +127,21 @@ export default function AdminPage() {
       {/* RP 갱신 */}
       <div className="flex items-center gap-4 flex-wrap">
         <button onClick={handleRefresh} disabled={refreshing} className="btn-secondary">
-          {refreshing ? "갱신 중..." : "RP 수동 갱신"}
+          {refreshing ? "요청 중..." : "RP 수동 갱신"}
         </button>
-        {refreshMsg && <span className="text-sm text-white/60">{refreshMsg}</span>}
+        <div className="flex items-center gap-2">
+          {refreshMsg && <span className="text-sm text-white/60">{refreshMsg}</span>}
+          {runUrl && (
+            <a
+              href={runUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-pubg-gold hover:underline"
+            >
+              → 진행 상황 보기
+            </a>
+          )}
+        </div>
         <span className="text-white/30 text-xs ml-auto">자동 갱신: 매 시간 정각</span>
       </div>
 
