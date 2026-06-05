@@ -25,7 +25,7 @@ export async function updateAllRanks() {
 
   for (const player of typedPlayers) {
     try {
-      let playerId: string = player.pubg_player_id;
+      let playerId: string | null = player.pubg_player_id;
 
       if (!playerId) {
         const found = await getPlayer(player.steam_username, "steam");
@@ -36,13 +36,15 @@ export async function updateAllRanks() {
           .eq("id", player.id);
       }
 
-      const rankData = await getPlayerRankedStats(playerId, "steam", season);
+      // if 블록에서 할당했으므로 이 시점에는 항상 string
+      const resolvedId = playerId as string;
+      const rankData = await getPlayerRankedStats(resolvedId, "steam", season);
 
       for (const { key, mode } of MODES) {
         const stats = rankData[key];
         if (!stats) continue;
         await upsertPlayerRecord({
-          player_id: playerId,
+          player_id: resolvedId,
           player_name: player.steam_username,
           platform: "steam",
           season,
