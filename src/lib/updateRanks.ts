@@ -21,7 +21,11 @@ export async function updateAllRanks() {
   const season = await getCurrentSeason("steam");
   const results = { success: 0, failed: 0, errors: [] as string[] };
 
-  for (const player of typedPlayers) {
+  for (let i = 0; i < typedPlayers.length; i++) {
+    // PUBG API 레이트 리밋: 분당 10요청 → 7초 간격
+    if (i > 0) await new Promise((r) => setTimeout(r, 7000));
+
+    const player = typedPlayers[i];
     try {
       if (!player.pubg_player_id) {
         results.errors.push(`${player.player_name}: PUBG 계정 ID 미등록`);
