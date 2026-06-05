@@ -9,8 +9,7 @@ export async function PUT(
   const id = Number(params.id);
   const { team_name, player_name, steam_username, is_active } = await req.json();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const update: Record<string, any> = {
+  const update: Record<string, unknown> = {
     team_name,
     player_name,
     is_active,
@@ -27,8 +26,7 @@ export async function PUT(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (getSupabaseAdmin() as any)
+  const { data, error } = await getSupabaseAdmin()
     .from("Steam_players")
     .update(update)
     .eq("id", id)

@@ -5,14 +5,16 @@ import type { DbPlayerRecord, LeaderboardEntry, SteamPlayer } from "@/types";
 let _supabase: ReturnType<typeof createClient> | null = null;
 let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
-export function getSupabase() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getSupabase(): any {
   return (_supabase ??= createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ));
 }
 
-export function getSupabaseAdmin() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getSupabaseAdmin(): any {
   return (_supabaseAdmin ??= createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
