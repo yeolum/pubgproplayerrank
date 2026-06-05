@@ -40,6 +40,7 @@ export async function upsertPlayerRecord(record: DbPlayerRecord) {
         rounds_played: record.rounds_played,
         wins: record.wins,
         kills: record.kills,
+        kda: 0,
         damage_dealt: record.damage_dealt,
         fetched_at: record.fetched_at,
       },
