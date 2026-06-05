@@ -7,7 +7,8 @@ export type RankTier =
   | "Platinum"
   | "Diamond"
   | "Master"
-  | "Grandmaster";
+  | "Grandmaster"
+  | "Survivor";
 
 export interface PubgPlayer {
   id: string;

@@ -27,18 +27,17 @@ export async function getCurrentSeason(platform: Platform = "steam"): Promise<st
 
 function parseRankedStats(modeData: Record<string, unknown> | null): RankedStats | null {
   if (!modeData) return null;
-  const stats = modeData.stats as Record<string, unknown>;
-  if (!stats || (stats.roundsPlayed as number) === 0) return null;
+  if (!modeData.roundsPlayed || (modeData.roundsPlayed as number) === 0) return null;
 
   return {
-    currentRankPoint: stats.currentRankPoint as number,
-    bestRankPoint: stats.bestRankPoint as number,
-    currentTier: stats.currentTier as { tier: import("@/types").RankTier; subTier: string },
-    bestTier: stats.bestTier as { tier: import("@/types").RankTier; subTier: string },
-    roundsPlayed: stats.roundsPlayed as number,
-    wins: stats.wins as number,
-    kills: stats.kills as number,
-    damageDealt: stats.damageDealt as number,
+    currentRankPoint: modeData.currentRankPoint as number,
+    bestRankPoint: modeData.bestRankPoint as number,
+    currentTier: modeData.currentTier as { tier: import("@/types").RankTier; subTier: string },
+    bestTier: modeData.bestTier as { tier: import("@/types").RankTier; subTier: string },
+    roundsPlayed: modeData.roundsPlayed as number,
+    wins: modeData.wins as number,
+    kills: modeData.kills as number,
+    damageDealt: modeData.damageDealt as number,
   };
 }
 

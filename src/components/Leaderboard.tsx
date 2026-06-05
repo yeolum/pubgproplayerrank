@@ -8,6 +8,7 @@ const TIER_COLOR: Record<string, string> = {
   Diamond: "text-blue-300",
   Master: "text-purple-300",
   Grandmaster: "text-pubg-gold",
+  Survivor: "text-red-400",
 };
 
 function tierColor(tier: string | null) {
