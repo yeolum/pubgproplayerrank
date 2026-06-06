@@ -3,17 +3,35 @@
 @tailwind utilities;
 
 :root {
-  --background: #0D0D1A;
-  --foreground: #EDEDED;
+  /* 배경 */
+  --bg:        #F0EADC;
+  --panel:     #FBF7EF;
+  --panel-2:   #F5EFE2;
+  --line:      #DCD2BF;
+  --line-soft: #E6DECE;
+  /* 텍스트 */
+  --text:      #2C2823;
+  --muted:     #6B6358;
+  --faint:     #9A9082;
+  --accent:    #B5651D;
+  /* 티어 */
+  --t-survivor: #C0392B;
+  --t-master:   #5E47A0;
+  --t-diamond:  #2E6FB0;
+  --t-crystal:  #1A8A6E;
+  /* 변동 */
+  --up:   #2E8B4F;
+  --down: #C0392B;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg);
+  color: var(--text);
   font-family: var(--font-inter), sans-serif;
 }
 
 @layer components {
+  /* 어드민 전용 다크 카드 */
   .card {
     @apply bg-pubg-card rounded-xl border border-white/10 p-6;
   }

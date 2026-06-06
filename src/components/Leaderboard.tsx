@@ -19,15 +19,16 @@ type TierKey =
   | "Diamond"  | "Platinum" | "Gold"
   | "Silver"   | "Bronze";
 
+// bg 10%, border 30%, text 100% — 크림 배경용
 const TIER: Record<TierKey, { text: string; badge: string; line: string }> = {
-  Survivor:    { text: "text-red-400",    badge: "text-red-400 border-red-400/50",       line: "#f87171" },
-  Master:      { text: "text-purple-400", badge: "text-purple-400 border-purple-400/50", line: "#c084fc" },
-  Grandmaster: { text: "text-[#F5A623]",  badge: "text-[#F5A623] border-yellow-500/50",  line: "#F5A623" },
-  Diamond:     { text: "text-blue-400",   badge: "text-blue-400 border-blue-400/50",     line: "#60a5fa" },
-  Platinum:    { text: "text-cyan-300",   badge: "text-cyan-300 border-cyan-300/50",     line: "#67e8f9" },
-  Gold:        { text: "text-yellow-400", badge: "text-yellow-400 border-yellow-400/50", line: "#facc15" },
-  Silver:      { text: "text-slate-300",  badge: "text-slate-300 border-slate-300/50",   line: "#cbd5e1" },
-  Bronze:      { text: "text-amber-600",  badge: "text-amber-600 border-amber-600/50",   line: "#d97706" },
+  Survivor:    { text: "text-[#C0392B]", badge: "text-[#C0392B] border-[rgba(192,57,43,0.3)]  bg-[rgba(192,57,43,0.1)]",   line: "#C0392B" },
+  Master:      { text: "text-[#5E47A0]", badge: "text-[#5E47A0] border-[rgba(94,71,160,0.3)]  bg-[rgba(94,71,160,0.1)]",   line: "#5E47A0" },
+  Grandmaster: { text: "text-[#B5651D]", badge: "text-[#B5651D] border-[rgba(181,101,29,0.3)] bg-[rgba(181,101,29,0.1)]",  line: "#B5651D" },
+  Diamond:     { text: "text-[#2E6FB0]", badge: "text-[#2E6FB0] border-[rgba(46,111,176,0.3)] bg-[rgba(46,111,176,0.1)]",  line: "#2E6FB0" },
+  Platinum:    { text: "text-[#1A8A6E]", badge: "text-[#1A8A6E] border-[rgba(26,138,110,0.3)] bg-[rgba(26,138,110,0.1)]",  line: "#1A8A6E" },
+  Gold:        { text: "text-[#9B6B0C]", badge: "text-[#9B6B0C] border-[rgba(155,107,12,0.3)] bg-[rgba(155,107,12,0.1)]",  line: "#9B6B0C" },
+  Silver:      { text: "text-[#7A7060]", badge: "text-[#7A7060] border-[rgba(122,112,96,0.3)] bg-[rgba(122,112,96,0.1)]",  line: "#7A7060" },
+  Bronze:      { text: "text-[#8B5E3C]", badge: "text-[#8B5E3C] border-[rgba(139,94,60,0.3)]  bg-[rgba(139,94,60,0.1)]",   line: "#8B5E3C" },
 };
 
 function getTier(tier: string | null) {
@@ -37,13 +38,13 @@ function getTier(tier: string | null) {
 
 // ─── Team logo ────────────────────────────────────────────────────────────────
 const CHIP_COLORS = [
-  "bg-blue-900/60 text-blue-300",
-  "bg-purple-900/60 text-purple-300",
-  "bg-red-900/60 text-red-300",
-  "bg-green-900/60 text-green-300",
-  "bg-orange-900/60 text-orange-300",
-  "bg-teal-900/60 text-teal-300",
-  "bg-pink-900/60 text-pink-300",
+  "bg-[rgba(46,111,176,0.1)]  text-[#2E6FB0]",
+  "bg-[rgba(94,71,160,0.1)]   text-[#5E47A0]",
+  "bg-[rgba(192,57,43,0.1)]   text-[#C0392B]",
+  "bg-[rgba(26,138,110,0.1)]  text-[#1A8A6E]",
+  "bg-[rgba(181,101,29,0.1)]  text-[#B5651D]",
+  "bg-[rgba(155,107,12,0.1)]  text-[#9B6B0C]",
+  "bg-[rgba(139,94,60,0.1)]   text-[#8B5E3C]",
 ];
 
 function chipColor(name: string) {
@@ -88,9 +89,9 @@ function TeamLogo({ team, size = 24 }: { team: string; size?: number }) {
 
 // ─── Tier badge ───────────────────────────────────────────────────────────────
 function TierBadge({ tier }: { tier: string | null }) {
-  if (!tier) return <span className="text-white/20 text-[11px]">—</span>;
+  if (!tier) return <span className="text-[11px]" style={{ color: "var(--faint)" }}>—</span>;
   const cfg = getTier(tier);
-  if (!cfg) return <span className="text-white/40 text-[11px]">{tier}</span>;
+  if (!cfg) return <span className="text-[11px]" style={{ color: "var(--muted)" }}>{tier}</span>;
   return (
     <span className={`text-[11px] font-semibold border rounded px-1.5 py-0.5 whitespace-nowrap ${cfg.badge}`}>
       {tier}
@@ -100,11 +101,11 @@ function TierBadge({ tier }: { tier: string | null }) {
 
 // ─── Rank change ──────────────────────────────────────────────────────────────
 function RankChange({ prev, curr }: { prev: number | null; curr: number }) {
-  if (prev === null) return <span className="text-white/20 text-[10px]">–</span>;
+  if (prev === null) return <span className="text-[10px]" style={{ color: "var(--faint)" }}>–</span>;
   const diff = prev - curr;
-  if (diff > 0) return <span className="text-green-400 text-[10px] font-semibold">▲{diff}</span>;
-  if (diff < 0) return <span className="text-red-400 text-[10px] font-semibold">▼{Math.abs(diff)}</span>;
-  return <span className="text-white/20 text-[10px]">–</span>;
+  if (diff > 0) return <span className="text-[10px] font-semibold" style={{ color: "var(--up)" }}>▲{diff}</span>;
+  if (diff < 0) return <span className="text-[10px] font-semibold" style={{ color: "var(--down)" }}>▼{Math.abs(diff)}</span>;
+  return <span className="text-[10px]" style={{ color: "var(--faint)" }}>–</span>;
 }
 
 // ─── RP chart (inline SVG) ────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ type HP = { current_rp: number; recorded_at: string };
 
 function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
   if (data.length < 2) {
-    return <p className="text-white/30 text-sm text-center py-4">추이 데이터가 아직 없습니다</p>;
+    return <p className="text-sm text-center py-4" style={{ color: "var(--faint)" }}>추이 데이터가 아직 없습니다</p>;
   }
 
   const W = 560, H = 90;
@@ -141,20 +142,20 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
   return (
     <div>
       <div className="flex flex-wrap gap-4 text-xs mb-2">
-        <span className={delta >= 0 ? "text-green-400" : "text-red-400"}>
+        <span style={{ color: delta >= 0 ? "var(--up)" : "var(--down)" }}>
           {delta >= 0 ? "+" : ""}{delta} RP
         </span>
-        <span className="text-white/30">최저 {minR.toLocaleString()}</span>
-        <span className="text-white/30">최고 {maxR.toLocaleString()}</span>
-        <span className="text-white/20 text-[10px]">
+        <span style={{ color: "var(--faint)" }}>최저 {minR.toLocaleString()}</span>
+        <span style={{ color: "var(--faint)" }}>최고 {maxR.toLocaleString()}</span>
+        <span className="text-[10px]" style={{ color: "var(--faint)" }}>
           {fmtDate(data[0].recorded_at)} – {fmtDate(data[data.length - 1].recorded_at)}
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 90 }}>
-        <line x1={P.l} y1={P.t} x2={P.l} y2={P.t + ih} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
-        <line x1={P.l} y1={P.t + ih} x2={P.l + iw} y2={P.t + ih} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
-        <text x={P.l - 4} y={P.t + 5}      textAnchor="end" fontSize={8} fill="rgba(255,255,255,0.3)">{maxR}</text>
-        <text x={P.l - 4} y={P.t + ih + 1} textAnchor="end" fontSize={8} fill="rgba(255,255,255,0.3)">{minR}</text>
+        <line x1={P.l} y1={P.t} x2={P.l} y2={P.t + ih} style={{ stroke: "var(--line-soft)" }} strokeWidth={1} />
+        <line x1={P.l} y1={P.t + ih} x2={P.l + iw} y2={P.t + ih} style={{ stroke: "var(--line-soft)" }} strokeWidth={1} />
+        <text x={P.l - 4} y={P.t + 5}      textAnchor="end" fontSize={8} style={{ fill: "var(--faint)" }}>{maxR}</text>
+        <text x={P.l - 4} y={P.t + ih + 1} textAnchor="end" fontSize={8} style={{ fill: "var(--faint)" }}>{minR}</text>
         <polyline
           points={pts}
           fill="none"
@@ -163,12 +164,7 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        <circle
-          cx={sx(ts[ts.length - 1])}
-          cy={sy(rps[rps.length - 1])}
-          r={3}
-          fill={lineColor}
-        />
+        <circle cx={sx(ts[ts.length - 1])} cy={sy(rps[rps.length - 1])} r={3} fill={lineColor} />
       </svg>
     </div>
   );
@@ -192,23 +188,30 @@ function relTime(iso: string | null) {
 
 // ─── Podium ───────────────────────────────────────────────────────────────────
 const PODIUM_STYLE = [
-  { cssOrder: "order-2", label: "1위", border: "border-yellow-400/50", labelColor: "text-yellow-400", rpColor: "text-yellow-400" },
-  { cssOrder: "order-1", label: "2위", border: "border-slate-400/30",  labelColor: "text-slate-300",  rpColor: "text-slate-200"  },
-  { cssOrder: "order-3", label: "3위", border: "border-amber-700/40",  labelColor: "text-amber-600",  rpColor: "text-amber-500"  },
+  { cssOrder: "order-2", label: "1위", borderColor: "rgba(181,101,29,0.45)", labelColor: "var(--accent)", rpColor: "var(--accent)"  },
+  { cssOrder: "order-1", label: "2위", borderColor: "var(--line)",           labelColor: "var(--muted)",  rpColor: "var(--text)"    },
+  { cssOrder: "order-3", label: "3위", borderColor: "var(--line)",           labelColor: "var(--faint)",  rpColor: "var(--muted)"   },
 ];
 
 function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const s = PODIUM_STYLE[rank - 1];
   return (
-    <div className={`flex-1 min-w-[110px] rounded-xl border ${s.border} bg-white/[0.03] p-4 flex flex-col items-center gap-1.5 ${s.cssOrder}`}>
-      <span className={`text-[10px] font-bold uppercase tracking-widest ${s.labelColor}`}>{s.label}</span>
+    <div
+      className={`flex-1 min-w-[110px] rounded-xl p-4 flex flex-col items-center gap-1.5 border ${s.cssOrder}`}
+      style={{ backgroundColor: "var(--panel)", borderColor: s.borderColor }}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: s.labelColor }}>
+        {s.label}
+      </span>
       <TeamLogo team={entry.team_name} size={38} />
-      <span className="text-white font-bold text-sm text-center leading-tight w-full truncate text-center">
+      <span className="text-sm font-bold text-center leading-tight w-full truncate text-center" style={{ color: "var(--text)" }}>
         {entry.player_name}
       </span>
-      <span className="text-white/30 text-[10px] w-full truncate text-center">{entry.team_name}</span>
+      <span className="text-[10px] w-full truncate text-center" style={{ color: "var(--faint)" }}>
+        {entry.team_name}
+      </span>
       {entry.current_rp != null && (
-        <span className={`text-xl font-black tabular-nums mt-0.5 ${s.rpColor}`}>
+        <span className="text-xl font-black tabular-nums mt-0.5" style={{ color: s.rpColor }}>
           {entry.current_rp.toLocaleString()}
         </span>
       )}
@@ -236,7 +239,6 @@ export default function Leaderboard({ entries }: Props) {
   const ranked   = entries.filter(e => e.current_rp != null);
   const unranked = entries.filter(e => e.current_rp == null);
 
-  // RP-order rank (fixed regardless of current sort)
   const rpRank = new Map(ranked.map((e, i) => [e.id, i + 1]));
 
   const latestUpdate = entries.reduce<string | null>((max, e) => {
@@ -244,15 +246,11 @@ export default function Leaderboard({ entries }: Props) {
     return !max || e.fetched_at > max ? e.fetched_at : max;
   }, null);
 
-  // Filter
   const q = query.toLowerCase();
   const filtered = ranked.filter(e =>
-    !q ||
-    e.player_name.toLowerCase().includes(q) ||
-    e.team_name.toLowerCase().includes(q)
+    !q || e.player_name.toLowerCase().includes(q) || e.team_name.toLowerCase().includes(q)
   );
 
-  // Sort
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
         let av: number, bv: number;
@@ -298,7 +296,8 @@ export default function Leaderboard({ entries }: Props) {
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/5 text-center py-16 text-white/40">
+      <div className="rounded-xl border text-center py-16 text-sm"
+        style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)", color: "var(--muted)" }}>
         등록된 선수가 없습니다.
       </div>
     );
@@ -310,11 +309,11 @@ export default function Leaderboard({ entries }: Props) {
       {/* ── Header ── */}
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-black text-white">경쟁전 리더보드</h1>
+          <h1 className="text-2xl font-black" style={{ color: "var(--text)" }}>경쟁전 리더보드</h1>
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-white/30 text-xs tracking-wide">스쿼드 · TPP</span>
+            <span className="text-xs tracking-wide" style={{ color: "var(--faint)" }}>스쿼드 · TPP</span>
             {latestUpdate && (
-              <span className="text-white/20 text-xs">{relTime(latestUpdate)} 갱신</span>
+              <span className="text-xs" style={{ color: "var(--faint)" }}>{relTime(latestUpdate)} 갱신</span>
             )}
           </div>
         </div>
@@ -322,11 +321,16 @@ export default function Leaderboard({ entries }: Props) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="선수·팀 검색"
-          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white/25 w-44 transition-colors"
+          className="rounded-lg px-3 py-1.5 text-sm focus:outline-none w-44 transition-colors"
+          style={{
+            backgroundColor: "var(--bg)",
+            border: "1px solid var(--line)",
+            color: "var(--text)",
+          }}
         />
       </div>
 
-      {/* ── Podium (top 3, 2위|1위|3위 순서) ── */}
+      {/* ── Podium ── */}
       {ranked.length >= 3 && !query && (
         <div className="flex gap-3">
           {([ranked[0], ranked[1], ranked[2]] as LeaderboardEntry[]).map((e, i) => (
@@ -336,42 +340,48 @@ export default function Leaderboard({ entries }: Props) {
       )}
 
       {/* ── Table ── */}
-      <div className="rounded-xl border border-white/10 bg-[#16213E] overflow-hidden">
+      <div className="rounded-xl border overflow-hidden"
+        style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[480px]">
-            <thead className="sticky top-0 z-10 bg-[#16213E]">
-              <tr className="border-b border-white/10 text-xs uppercase tracking-wider">
-                <th className="px-4 py-3 text-left text-white/40 w-14">#</th>
-                <th className="px-4 py-3 text-left text-white/40">선수</th>
-                <th className="px-4 py-3 text-left text-white/40 whitespace-nowrap">티어</th>
-                <th className="px-4 py-3 text-right text-white/40">
+            <thead className="sticky top-0 z-10" style={{ backgroundColor: "var(--panel)" }}>
+              <tr className="text-xs uppercase tracking-wider border-b"
+                style={{ borderColor: "var(--line)" }}>
+                <th className="px-4 py-3 text-left w-14" style={{ color: "var(--faint)" }}>#</th>
+                <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>선수</th>
+                <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>티어</th>
+                <th className="px-4 py-3 text-right">
                   <button
                     onClick={() => toggleSort("current_rp")}
-                    className={`hover:text-white transition-colors ${sortKey === "current_rp" ? "text-[#F5A623]" : ""}`}
+                    className="hover:opacity-80 transition-opacity"
+                    style={{ color: sortKey === "current_rp" ? "var(--accent)" : "var(--faint)" }}
                   >
                     RP{sortKey === "current_rp" ? " ↓" : ""}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right text-white/40 hidden sm:table-cell">
+                <th className="px-4 py-3 text-right hidden sm:table-cell">
                   <button
                     onClick={() => toggleSort("rounds_played")}
-                    className={`hover:text-white transition-colors ${sortKey === "rounds_played" ? "text-[#F5A623]" : ""}`}
+                    className="hover:opacity-80 transition-opacity"
+                    style={{ color: sortKey === "rounds_played" ? "var(--accent)" : "var(--faint)" }}
                   >
                     게임{sortKey === "rounds_played" ? " ↓" : ""}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right text-white/40 hidden sm:table-cell">
+                <th className="px-4 py-3 text-right hidden sm:table-cell">
                   <button
                     onClick={() => toggleSort("kills")}
-                    className={`hover:text-white transition-colors ${sortKey === "kills" ? "text-[#F5A623]" : ""}`}
+                    className="hover:opacity-80 transition-opacity"
+                    style={{ color: sortKey === "kills" ? "var(--accent)" : "var(--faint)" }}
                   >
                     킬{sortKey === "kills" ? " ↓" : ""}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right text-white/40 hidden sm:table-cell">
+                <th className="px-4 py-3 text-right hidden sm:table-cell">
                   <button
                     onClick={() => toggleSort("avg_damage")}
-                    className={`hover:text-white transition-colors ${sortKey === "avg_damage" ? "text-[#F5A623]" : ""}`}
+                    className="hover:opacity-80 transition-opacity"
+                    style={{ color: sortKey === "avg_damage" ? "var(--accent)" : "var(--faint)" }}
                   >
                     평뎀{sortKey === "avg_damage" ? " ↓" : ""}
                   </button>
@@ -392,11 +402,18 @@ export default function Leaderboard({ entries }: Props) {
                   <React.Fragment key={entry.id}>
                     <tr
                       onClick={() => toggleExpand(entry)}
-                      className={`border-b border-white/5 hover:bg-white/[0.04] transition-colors cursor-pointer ${open ? "bg-white/[0.04]" : ""}`}
+                      className="border-b transition-colors cursor-pointer"
+                      style={{
+                        borderColor: "var(--line-soft)",
+                        backgroundColor: open ? "var(--panel-2)" : undefined,
+                      }}
+                      onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
+                      onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
                     >
-                      {/* Rank # */}
+                      {/* # */}
                       <td className="px-4 py-3">
-                        <div className={`font-bold tabular-nums leading-tight ${rank <= 3 ? "text-[#F5A623] text-base" : "text-white/40 text-sm"}`}>
+                        <div className={`font-bold tabular-nums leading-tight ${rank <= 3 ? "text-base" : "text-sm"}`}
+                          style={{ color: rank <= 3 ? "var(--accent)" : "var(--faint)" }}>
                           #{rank}
                         </div>
                         <div className="mt-0.5">
@@ -409,10 +426,10 @@ export default function Leaderboard({ entries }: Props) {
                         <div className="flex items-center gap-2">
                           <TeamLogo team={entry.team_name} size={24} />
                           <div className="min-w-0">
-                            <div className="text-white font-semibold text-sm leading-tight">
+                            <div className="font-semibold text-sm leading-tight" style={{ color: "var(--text)" }}>
                               {entry.player_name}
                             </div>
-                            <div className="text-white/30 text-[10px] truncate max-w-[100px]">
+                            <div className="text-[10px] truncate max-w-[100px]" style={{ color: "var(--faint)" }}>
                               {entry.team_name}
                             </div>
                           </div>
@@ -423,7 +440,7 @@ export default function Leaderboard({ entries }: Props) {
                       <td className="px-4 py-3">
                         <TierBadge tier={entry.current_tier} />
                         {entry.best_tier && (
-                          <div className="text-[9px] text-white/20 mt-0.5 whitespace-nowrap">
+                          <div className="text-[9px] mt-0.5 whitespace-nowrap" style={{ color: "var(--faint)" }}>
                             최고 {entry.best_tier}
                           </div>
                         )}
@@ -431,28 +448,33 @@ export default function Leaderboard({ entries }: Props) {
 
                       {/* RP */}
                       <td className="px-4 py-3 text-right">
-                        <div className={`font-black text-base tabular-nums ${cfg?.text ?? "text-white"}`}>
+                        <div className={`font-black text-base tabular-nums ${rank > 3 ? (cfg?.text ?? "") : ""}`}
+                          style={{ color: rank <= 3 ? "var(--accent)" : (cfg ? undefined : "var(--text)") }}
+                        >
                           {entry.current_rp?.toLocaleString()}
                         </div>
                         {entry.best_rp != null && (
-                          <div className="text-[9px] text-white/20 mt-0.5 tabular-nums">
+                          <div className="text-[9px] mt-0.5 tabular-nums" style={{ color: "var(--faint)" }}>
                             최고 {entry.best_rp.toLocaleString()}
                           </div>
                         )}
                       </td>
 
                       {/* Games */}
-                      <td className="px-4 py-3 text-right text-white/35 text-xs tabular-nums hidden sm:table-cell">
+                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                        style={{ color: "var(--muted)" }}>
                         {entry.rounds_played ?? "—"}
                       </td>
 
                       {/* Kills */}
-                      <td className="px-4 py-3 text-right text-white/35 text-xs tabular-nums hidden sm:table-cell">
+                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                        style={{ color: "var(--muted)" }}>
                         {entry.kills ?? "—"}
                       </td>
 
                       {/* Avg damage */}
-                      <td className="px-4 py-3 text-right text-white/35 text-xs tabular-nums hidden sm:table-cell">
+                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                        style={{ color: "var(--muted)" }}>
                         {avgDmg(entry.damage_dealt, entry.rounds_played)}
                       </td>
 
@@ -460,34 +482,34 @@ export default function Leaderboard({ entries }: Props) {
                       <td className="px-4 py-3">
                         <svg
                           viewBox="0 0 24 24" width={14} height={14}
-                          className={`text-white/25 transition-transform duration-200 ml-auto ${open ? "rotate-180" : ""}`}
+                          className={`transition-transform duration-200 ml-auto ${open ? "rotate-180" : ""}`}
                           fill="none" stroke="currentColor" strokeWidth={2.5}
+                          style={{ color: "var(--faint)" }}
                         >
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
                       </td>
                     </tr>
 
-                    {/* Expand: RP chart */}
+                    {/* Expand */}
                     {open && (
-                      <tr className="border-b border-white/5 bg-white/[0.02]">
+                      <tr className="border-b" style={{ borderColor: "var(--line-soft)", backgroundColor: "var(--panel-2)" }}>
                         <td colSpan={8} className="px-6 py-4">
                           {loading ? (
-                            <div className="flex items-center gap-2 text-white/30 text-sm py-2">
+                            <div className="flex items-center gap-2 text-sm py-2" style={{ color: "var(--faint)" }}>
                               <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                               </svg>
                               불러오는 중...
                             </div>
                           ) : history && history.length > 0 ? (
-                            <RPChart data={history} lineColor={cfg?.line ?? "#60a5fa"} />
+                            <RPChart data={history} lineColor={cfg?.line ?? "#2E6FB0"} />
                           ) : (
-                            <p className="text-white/25 text-sm text-center py-2">
+                            <p className="text-sm text-center py-2" style={{ color: "var(--faint)" }}>
                               추이 데이터가 아직 없습니다
                             </p>
                           )}
-                          {/* Mobile: 숨겨진 통계 표시 */}
-                          <div className="flex flex-wrap gap-4 mt-3 text-xs text-white/30 sm:hidden">
+                          <div className="flex flex-wrap gap-4 mt-3 text-xs sm:hidden" style={{ color: "var(--faint)" }}>
                             <span>게임 {entry.rounds_played ?? "—"}</span>
                             <span>킬 {entry.kills ?? "—"}</span>
                             <span>평뎀 {avgDmg(entry.damage_dealt, entry.rounds_played)}</span>
@@ -507,22 +529,23 @@ export default function Leaderboard({ entries }: Props) {
       {/* ── Unranked ── */}
       {unranked.length > 0 && !query && (
         <div>
-          <p className="text-white/20 text-xs font-semibold uppercase tracking-widest mb-2">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--faint)" }}>
             미배치 · 이번 시즌 랭크 기록 없음
           </p>
-          <div className="rounded-xl border border-white/5 overflow-hidden opacity-40">
+          <div className="rounded-xl border overflow-hidden opacity-50"
+            style={{ borderColor: "var(--line-soft)" }}>
             <table className="w-full">
               <tbody>
                 {unranked.map(e => (
-                  <tr key={e.id} className="border-b border-white/5 last:border-0">
+                  <tr key={e.id} className="border-b last:border-0" style={{ borderColor: "var(--line-soft)" }}>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <TeamLogo team={e.team_name} size={20} />
-                        <span className="text-white text-sm">{e.player_name}</span>
-                        <span className="text-white/30 text-xs">{e.team_name}</span>
+                        <span className="text-sm" style={{ color: "var(--text)" }}>{e.player_name}</span>
+                        <span className="text-xs" style={{ color: "var(--faint)" }}>{e.team_name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-right text-white/20 text-xs">—</td>
+                    <td className="px-4 py-2.5 text-right text-xs" style={{ color: "var(--faint)" }}>—</td>
                   </tr>
                 ))}
               </tbody>
