@@ -58,7 +58,8 @@ function abbr(name: string) {
 
 function TeamLogo({ team, size = 24 }: { team: string; size?: number }) {
   const [err, setErr] = useState(false);
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos/teams/${encodeURIComponent(team)}.png`;
+  const fileName = team.replace(/\s+/g, "_");
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos/teams/${encodeURIComponent(fileName)}.png`;
 
   if (err) {
     return (
