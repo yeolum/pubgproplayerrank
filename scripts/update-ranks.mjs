@@ -38,11 +38,15 @@ async function getActivePlayers() {
   return res.json();
 }
 
-async function getRankedStats(playerId, season) {
+async function getRankedStats(playerId, season, retries = 2) {
   const res = await fetch(
     `${PUBG_BASE}/players/${playerId}/seasons/${season}/ranked`,
     { headers: pubgHeaders }
   );
+  if (res.status === 429 && retries > 0) {
+    await sleep(65000);
+    return getRankedStats(playerId, season, retries - 1);
+  }
   if (!res.ok) throw new Error(`랭크 조회 실패: ${res.status}`);
   return res.json();
 }
