@@ -74,7 +74,7 @@ export async function getLeaderboard(mode = "squad"): Promise<LeaderboardEntry[]
   if (pubgIds.length > 0) {
     const { data: rawRanks } = await getSupabase()
       .from("Steam_player_ranks")
-      .select("player_id, current_rp, best_rp, current_tier, best_tier, rounds_played, wins, kills, damage_dealt, fetched_at, previous_rank, season")
+      .select("*")
       .eq("mode", mode)
       .in("player_id", pubgIds)
       .order("fetched_at", { ascending: false });
