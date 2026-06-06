@@ -4,7 +4,8 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PUBG_KEY = process.env.PUBG_API_KEY;
 
-const BATCH_SIZE = 10;        // PUBG API 분당 10요청 제한
+const FIRST_BATCH_SIZE = 9;   // 첫 배치: getCurrentSeason() 1개 소모로 9명
+const BATCH_SIZE = 10;        // 이후 배치: 10명씩
 const BATCH_DELAY_MS = 62000; // 배치 간 62초 대기 (60초 + 2초 버퍼)
 
 const pubgHeaders = {
@@ -118,24 +119,31 @@ async function main() {
   console.log("▶ PUBG RP 갱신 시작");
 
   const [season, players] = await Promise.all([getCurrentSeason(), getActivePlayers()]);
-  const totalBatches = Math.ceil(players.length / BATCH_SIZE);
-  console.log(`시즌: ${season} | 선수: ${players.length}명 | 배치: ${totalBatches}개 (${BATCH_SIZE}명씩)`);
+
+  // 첫 배치 9명, 이후 10명씩 분리
+  const batches = [];
+  if (players.length > 0) batches.push(players.slice(0, FIRST_BATCH_SIZE));
+  for (let i = FIRST_BATCH_SIZE; i < players.length; i += BATCH_SIZE) {
+    batches.push(players.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log(`시즌: ${season} | 선수: ${players.length}명 | 배치: ${batches.length}개`);
 
   const fetchedAt = new Date().toISOString();
   let success = 0;
   let failed = 0;
   const errors = [];
 
-  for (let i = 0; i < players.length; i += BATCH_SIZE) {
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const batch = players.slice(i, i + BATCH_SIZE);
+  for (let b = 0; b < batches.length; b++) {
+    const batch = batches[b];
+    const batchNum = b + 1;
 
-    if (i > 0) {
+    if (b > 0) {
       console.log(`\n  ⏳ 다음 배치까지 ${BATCH_DELAY_MS / 1000}초 대기...`);
       await sleep(BATCH_DELAY_MS);
     }
 
-    console.log(`\n[배치 ${batchNum}/${totalBatches}] ${batch.length}명 병렬 처리 중...`);
+    console.log(`\n[배치 ${batchNum}/${batches.length}] ${batch.length}명 병렬 처리 중...`);
 
     const results = await Promise.allSettled(
       batch.map((player) => processPlayer(player, season, fetchedAt))
