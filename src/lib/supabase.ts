@@ -52,10 +52,10 @@ export async function upsertPlayerRecord(record: DbPlayerRecord) {
 
 // ── 리더보드 ─────────────────────────────────────────────
 
-export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEntry[]> {
+export async function getLeaderboard(mode = "squad"): Promise<LeaderboardEntry[]> {
   const { data: rawPlayers, error: pe } = await getSupabase()
     .from("Steam_players")
-    .select("*")
+    .select("id, team_name, player_name, pubg_player_id, steam_username, is_active, created_at, updated_at")
     .eq("is_active", true)
     .order("team_name")
     .order("player_name");
@@ -74,7 +74,7 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
   if (pubgIds.length > 0) {
     const { data: rawRanks } = await getSupabase()
       .from("Steam_player_ranks")
-      .select("*")
+      .select("player_id, current_rp, best_rp, current_tier, best_tier, rounds_played, wins, kills, damage_dealt, fetched_at, previous_rank, season")
       .eq("mode", mode)
       .in("player_id", pubgIds)
       .order("fetched_at", { ascending: false });
@@ -88,16 +88,17 @@ export async function getLeaderboard(mode = "squad-fpp"): Promise<LeaderboardEnt
     const rank = p.pubg_player_id ? rankMap.get(p.pubg_player_id) ?? null : null;
     return {
       ...p,
-      current_rp: rank?.current_rp ?? null,
-      best_rp: rank?.best_rp ?? null,
-      current_tier: rank?.current_tier ?? null,
-      best_tier: rank?.best_tier ?? null,
+      current_rp:    rank?.current_rp    ?? null,
+      best_rp:       rank?.best_rp       ?? null,
+      current_tier:  rank?.current_tier  ?? null,
+      best_tier:     rank?.best_tier     ?? null,
       rounds_played: rank?.rounds_played ?? null,
-      wins: rank?.wins ?? null,
-      kills: rank?.kills ?? null,
-      damage_dealt: rank?.damage_dealt ?? null,
-      season: rank?.season ?? null,
-      fetched_at: rank?.fetched_at ?? null,
+      wins:          rank?.wins          ?? null,
+      kills:         rank?.kills         ?? null,
+      damage_dealt:  rank?.damage_dealt  ?? null,
+      season:        rank?.season        ?? null,
+      fetched_at:    rank?.fetched_at    ?? null,
+      previous_rank: rank?.previous_rank ?? null,
     };
   });
 

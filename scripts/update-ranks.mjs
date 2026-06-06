@@ -64,6 +64,51 @@ async function upsertRecords(records) {
   if (!res.ok) throw new Error(`upsert 실패: ${await res.text()}`);
 }
 
+// 업데이트 전 현재 순위를 previous_rank에 저장 (순위 변동 표시용)
+async function snapshotRanks(season) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/Steam_player_ranks?mode=eq.squad&season=eq.${encodeURIComponent(season)}&order=current_rp.desc&select=player_id`,
+    { headers: sbHeaders }
+  );
+  if (!res.ok) {
+    console.warn(`  ⚠ 순위 스냅샷 조회 실패: ${res.status}`);
+    return;
+  }
+  const rows = await res.json();
+  if (!rows.length) return;
+
+  await Promise.all(
+    rows.map((r, i) =>
+      fetch(
+        `${SUPABASE_URL}/rest/v1/Steam_player_ranks?player_id=eq.${encodeURIComponent(r.player_id)}&mode=eq.squad&season=eq.${encodeURIComponent(season)}`,
+        {
+          method: "PATCH",
+          headers: { ...sbHeaders, Prefer: "return=minimal" },
+          body: JSON.stringify({ previous_rank: i + 1 }),
+        }
+      )
+    )
+  );
+  console.log(`  ✓ 순위 스냅샷 저장 (${rows.length}명)`);
+}
+
+// RP가 변경됐을 때만 rp_history에 기록
+async function insertRpHistory(playerId, currentRp) {
+  const checkRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/rp_history?player_id=eq.${encodeURIComponent(playerId)}&order=recorded_at.desc&limit=1&select=current_rp`,
+    { headers: sbHeaders }
+  );
+  if (checkRes.ok) {
+    const [last] = await checkRes.json();
+    if (last?.current_rp === currentRp) return; // 변화 없음
+  }
+  await fetch(`${SUPABASE_URL}/rest/v1/rp_history`, {
+    method: "POST",
+    headers: { ...sbHeaders, Prefer: "return=minimal" },
+    body: JSON.stringify({ player_id: playerId, current_rp: currentRp }),
+  });
+}
+
 function parseStats(modeData) {
   if (!modeData || !modeData.roundsPlayed || modeData.roundsPlayed === 0) return null;
   return {
@@ -112,7 +157,14 @@ async function processPlayer(player, season, fetchedAt) {
     });
   }
 
-  if (records.length > 0) await upsertRecords(records);
+  if (records.length > 0) {
+    await upsertRecords(records);
+    // squad TPP RP가 변경된 경우에만 rp_history 기록
+    const squadRecord = records.find((r) => r.mode === "squad");
+    if (squadRecord) {
+      await insertRpHistory(player.pubg_player_id, squadRecord.current_rp);
+    }
+  }
 }
 
 async function main() {
@@ -128,6 +180,9 @@ async function main() {
   }
 
   console.log(`시즌: ${season} | 선수: ${players.length}명 | 배치: ${batches.length}개`);
+
+  console.log("\n📸 순위 스냅샷 저장 중...");
+  await snapshotRanks(season);
 
   const fetchedAt = new Date().toISOString();
   let success = 0;

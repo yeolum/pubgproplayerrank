@@ -71,3 +71,37 @@ create policy "Service role all access on Steam_players"
   on "Steam_players" for all
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
+
+-- =============================================
+-- Migrations
+-- =============================================
+
+-- damage_dealt 컬럼 (없을 경우 추가)
+alter table "Steam_player_ranks"
+  add column if not exists damage_dealt integer not null default 0;
+
+-- 순위 변동 추적용 previous_rank 컬럼
+alter table "Steam_player_ranks"
+  add column if not exists previous_rank integer;
+
+-- =============================================
+-- rp_history : RP 시계열 기록 (변경 시에만 insert)
+-- =============================================
+create table if not exists "rp_history" (
+  id          bigserial   primary key,
+  player_id   text        not null,
+  current_rp  integer     not null,
+  recorded_at timestamptz not null default now()
+);
+
+create index if not exists idx_rp_history_player_time
+  on "rp_history" (player_id, recorded_at desc);
+
+alter table "rp_history" enable row level security;
+
+create policy "Public read rp_history"
+  on "rp_history" for select using (true);
+
+create policy "Service role write rp_history"
+  on "rp_history" for insert
+  with check (auth.role() = 'service_role');

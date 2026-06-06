@@ -53,6 +53,7 @@ export interface DbPlayerRecord {
   kills: number;
   damage_dealt: number;
   fetched_at: string;
+  previous_rank?: number | null;
   created_at?: string;
 }
 
@@ -78,4 +79,5 @@ export interface LeaderboardEntry extends SteamPlayer {
   damage_dealt: number | null;
   season: string | null;
   fetched_at: string | null;
+  previous_rank: number | null;
 }
