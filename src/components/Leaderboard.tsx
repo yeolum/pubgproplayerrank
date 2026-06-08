@@ -138,8 +138,16 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const uid = useId();
 
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    const p = new Intl.DateTimeFormat("en-US", {
+      month: "2-digit", day: "2-digit",
+      hour: "2-digit", hour12: false,
+      timeZone: "Asia/Seoul",
+    }).formatToParts(d);
+    const v = (t: string) => p.find(x => x.type === t)?.value ?? "";
+    return `${v("month")}.${v("day")} ${v("hour")}시`;
+  };
 
   if (data.length === 0) {
     return <p className="text-sm text-center py-4" style={{ color: "var(--faint)" }}>추이 데이터가 아직 없습니다</p>;
@@ -166,20 +174,19 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const rps  = data.map(d => d.current_rp);
-  const ts   = data.map(d => new Date(d.recorded_at).getTime());
   const minR = Math.min(...rps), maxR = Math.max(...rps);
-  const minT = Math.min(...ts),  maxT = Math.max(...ts);
 
-  // ── Scale (Y에 18% 여백 추가해 선이 경계에 붙지 않게) ─────────────────────
+  // ── Scale ───────────────────────────────────────────────────────────────────
   const yPad = maxR === minR ? 100 : (maxR - minR) * 0.18;
   const loY  = minR - yPad, hiY = maxR + yPad;
 
-  const sx = (t: number) =>
-    P.l + (maxT === minT ? iw / 2 : ((t - minT) / (maxT - minT)) * iw);
+  // X축: 포인트별 균등 간격 (라벨 가독성 우선)
+  const sx = (i: number) =>
+    data.length <= 1 ? P.l + iw / 2 : P.l + (i / (data.length - 1)) * iw;
   const sy = (r: number) => P.t + (1 - (r - loY) / (hiY - loY)) * ih;
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const pts      = data.map((_, i) => [sx(ts[i]), sy(rps[i])] as [number, number]);
+  const pts      = data.map((_, i) => [sx(i), sy(rps[i])] as [number, number]);
   const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L ${pts[pts.length - 1][0].toFixed(1)},${(P.t + ih).toFixed(1)} L ${pts[0][0].toFixed(1)},${(P.t + ih).toFixed(1)} Z`;
   const yTicks   = genYTicks(minR, maxR, 4);
@@ -187,8 +194,7 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
   const delta    = rps[rps.length - 1] - rps[0];
   const gradId   = `rpg${uid.replace(/:/g, "")}`;
 
-  const fmtY = (v: number) =>
-    v >= 1000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(v);
+  const fmtY = (v: number) => v.toLocaleString();
 
   return (
     <div>
