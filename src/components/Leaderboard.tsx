@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useMemo } from "react";
+import React, { useState, useCallback, useRef, useMemo, useId } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { LeaderboardEntry } from "@/types";
 
@@ -108,10 +108,36 @@ function RankChange({ prev, curr }: { prev: number | null; curr: number }) {
   return <span className="text-[10px]" style={{ color: "var(--faint)" }}>–</span>;
 }
 
+// ─── RP chart helpers ────────────────────────────────────────────────────────
+function genYTicks(min: number, max: number, target: number): number[] {
+  if (min === max) return [min];
+  const range = max - min;
+  const rough = range / target;
+  const mag   = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm  = rough / mag;
+  const nice  = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
+  const step  = nice * mag;
+  const start = Math.ceil(min / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= max + step * 0.01; v += step) ticks.push(Math.round(v));
+  return ticks;
+}
+
+function sampleIdx(count: number, max: number): number[] {
+  if (count <= max) return Array.from({ length: count }, (_, i) => i);
+  const out  = new Set([0, count - 1]);
+  const step = (count - 1) / (max - 1);
+  for (let i = 1; i < max - 1; i++) out.add(Math.round(i * step));
+  return [...out].sort((a, b) => a - b);
+}
+
 // ─── RP chart (inline SVG) ────────────────────────────────────────────────────
 type HP = { current_rp: number; recorded_at: string };
 
 function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const uid = useId();
+
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
 
@@ -132,32 +158,44 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
     );
   }
 
-  const W = 560, H = 90;
-  const P = { t: 8, r: 16, b: 20, l: 46 };
+  // ── Layout ──────────────────────────────────────────────────────────────────
+  const W = 560, H = 160;
+  const P = { t: 14, r: 20, b: 40, l: 54 };
   const iw = W - P.l - P.r;
   const ih = H - P.t - P.b;
 
-  const rps = data.map(d => d.current_rp);
-  const ts  = data.map(d => new Date(d.recorded_at).getTime());
+  // ── Data ────────────────────────────────────────────────────────────────────
+  const rps  = data.map(d => d.current_rp);
+  const ts   = data.map(d => new Date(d.recorded_at).getTime());
   const minR = Math.min(...rps), maxR = Math.max(...rps);
   const minT = Math.min(...ts),  maxT = Math.max(...ts);
 
+  // ── Scale (Y에 18% 여백 추가해 선이 경계에 붙지 않게) ─────────────────────
+  const yPad = maxR === minR ? 100 : (maxR - minR) * 0.18;
+  const loY  = minR - yPad, hiY = maxR + yPad;
+
   const sx = (t: number) =>
     P.l + (maxT === minT ? iw / 2 : ((t - minT) / (maxT - minT)) * iw);
-  const sy = (r: number) =>
-    P.t + (maxR === minR ? ih / 2 : (1 - (r - minR) / (maxR - minR)) * ih);
+  const sy = (r: number) => P.t + (1 - (r - loY) / (hiY - loY)) * ih;
 
-  const pts = data
-    .map(d => `${sx(new Date(d.recorded_at).getTime()).toFixed(1)},${sy(d.current_rp).toFixed(1)}`)
-    .join(" ");
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const pts      = data.map((_, i) => [sx(ts[i]), sy(rps[i])] as [number, number]);
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${pts[pts.length - 1][0].toFixed(1)},${(P.t + ih).toFixed(1)} L ${pts[0][0].toFixed(1)},${(P.t + ih).toFixed(1)} Z`;
+  const yTicks   = genYTicks(minR, maxR, 4);
+  const xLabels  = sampleIdx(data.length, 6);
+  const delta    = rps[rps.length - 1] - rps[0];
+  const gradId   = `rpg${uid.replace(/:/g, "")}`;
 
-  const delta = rps[rps.length - 1] - rps[0];
+  const fmtY = (v: number) =>
+    v >= 1000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(v);
 
   return (
     <div>
-      <div className="flex flex-wrap gap-4 text-xs mb-2">
+      {/* ── 요약 ────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-4 text-xs mb-3">
         <span style={{ color: delta >= 0 ? "var(--up)" : "var(--down)" }}>
-          {delta >= 0 ? "+" : ""}{delta} RP
+          {delta >= 0 ? "+" : ""}{delta.toLocaleString()} RP
         </span>
         <span style={{ color: "var(--faint)" }}>최저 {minR.toLocaleString()}</span>
         <span style={{ color: "var(--faint)" }}>최고 {maxR.toLocaleString()}</span>
@@ -165,20 +203,108 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
           {fmtDate(data[0].recorded_at)} – {fmtDate(data[data.length - 1].recorded_at)}
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 90 }}>
-        <line x1={P.l} y1={P.t} x2={P.l} y2={P.t + ih} style={{ stroke: "var(--line-soft)" }} strokeWidth={1} />
-        <line x1={P.l} y1={P.t + ih} x2={P.l + iw} y2={P.t + ih} style={{ stroke: "var(--line-soft)" }} strokeWidth={1} />
-        <text x={P.l - 4} y={P.t + 5}      textAnchor="end" fontSize={8} style={{ fill: "var(--faint)" }}>{maxR}</text>
-        <text x={P.l - 4} y={P.t + ih + 1} textAnchor="end" fontSize={8} style={{ fill: "var(--faint)" }}>{minR}</text>
-        <polyline
-          points={pts}
-          fill="none"
-          stroke={lineColor}
-          strokeWidth={2}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        <circle cx={sx(ts[ts.length - 1])} cy={sy(rps[rps.length - 1])} r={3} fill={lineColor} />
+
+      {/* ── SVG ─────────────────────────────────────────────────────────────── */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H, overflow: "visible" }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={lineColor} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+
+        {/* Y 그리드 */}
+        {yTicks.map(v => {
+          const y = sy(v);
+          if (y < P.t - 1 || y > P.t + ih + 1) return null;
+          return (
+            <g key={v}>
+              <line
+                x1={P.l} y1={y} x2={P.l + iw} y2={y}
+                stroke="var(--line)" strokeWidth={0.5} strokeDasharray="4 3" opacity={0.5}
+              />
+              <text x={P.l - 5} y={y + 3.5} textAnchor="end" fontSize={9}
+                style={{ fill: "var(--faint)" }}>
+                {fmtY(v)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* 축 선 */}
+        <line x1={P.l} y1={P.t}      x2={P.l}      y2={P.t + ih} stroke="var(--line)" strokeWidth={1} />
+        <line x1={P.l} y1={P.t + ih} x2={P.l + iw} y2={P.t + ih} stroke="var(--line)" strokeWidth={1} />
+
+        {/* 영역 채우기 */}
+        <path d={areaPath} fill={`url(#${gradId})`} />
+
+        {/* 꺾은선 */}
+        <path d={linePath} fill="none" stroke={lineColor} strokeWidth={2}
+          strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* 데이터 포인트 */}
+        {pts.map((p, i) => {
+          const isLast    = i === pts.length - 1;
+          const isHovered = i === hoveredIdx;
+          return (
+            <g key={i}>
+              <circle cx={p[0]} cy={p[1]} r={10} fill="transparent"
+                style={{ cursor: "crosshair" }}
+                onMouseEnter={() => setHoveredIdx(i)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                onTouchStart={() => setHoveredIdx(prev => prev === i ? null : i)}
+              />
+              <circle
+                cx={p[0]} cy={p[1]}
+                r={isLast || isHovered ? 4 : 2.5}
+                fill={isHovered || isLast ? lineColor : "var(--panel-2)"}
+                stroke={lineColor}
+                strokeWidth={isLast || isHovered ? 2 : 1.5}
+                style={{ pointerEvents: "none" }}
+              />
+            </g>
+          );
+        })}
+
+        {/* X축 라벨 */}
+        {xLabels.map(i => (
+          <text key={i} x={pts[i][0]} y={P.t + ih + 18}
+            textAnchor="middle" fontSize={9} style={{ fill: "var(--faint)" }}>
+            {fmtDate(data[i].recorded_at)}
+          </text>
+        ))}
+
+        {/* 툴팁 */}
+        {hoveredIdx !== null && (() => {
+          const hx          = pts[hoveredIdx][0];
+          const hy          = pts[hoveredIdx][1];
+          const rpV         = rps[hoveredIdx];
+          const date        = fmtDate(data[hoveredIdx].recorded_at);
+          const tw          = 104;
+          const th          = 40;
+          const tx          = Math.max(P.l + 2, Math.min(hx - tw / 2, P.l + iw - tw - 2));
+          const aboveEnough = hy - th - 10 >= P.t;
+          const ty          = aboveEnough ? hy - th - 10 : hy + 12;
+          return (
+            <g style={{ pointerEvents: "none" }}>
+              <line
+                x1={hx} y1={aboveEnough ? ty + th : ty}
+                x2={hx} y2={aboveEnough ? hy - 5  : hy + 5}
+                stroke={lineColor} strokeWidth={1} strokeDasharray="2 2" opacity={0.45}
+              />
+              <rect x={tx} y={ty} width={tw} height={th} rx={5}
+                fill="var(--text)" opacity={0.9} />
+              <text x={tx + tw / 2} y={ty + 14} textAnchor="middle" fontSize={9}
+                style={{ fill: "var(--panel)", opacity: 0.7 }}>
+                {date}
+              </text>
+              <text x={tx + tw / 2} y={ty + 29} textAnchor="middle" fontSize={12}
+                fontWeight="bold" style={{ fill: "var(--panel)" }}>
+                {rpV.toLocaleString()} RP
+              </text>
+            </g>
+          );
+        })()}
       </svg>
     </div>
   );
