@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { LeaderboardEntry } from "@/types";
 
@@ -220,6 +220,57 @@ function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: number }) 
   );
 }
 
+// ─── Team aggregation ─────────────────────────────────────────────────────────
+interface TeamEntry {
+  team_name: string;
+  total_rp: number;
+  total_games: number;
+  total_kills: number;
+}
+
+function aggregateByTeam(players: LeaderboardEntry[]): TeamEntry[] {
+  const map = new Map<string, TeamEntry>();
+  for (const p of players) {
+    if (p.current_rp == null) continue;
+    const prev = map.get(p.team_name);
+    if (prev) {
+      prev.total_rp    += p.current_rp;
+      prev.total_games += p.rounds_played ?? 0;
+      prev.total_kills += p.kills ?? 0;
+    } else {
+      map.set(p.team_name, {
+        team_name:   p.team_name,
+        total_rp:    p.current_rp,
+        total_games: p.rounds_played ?? 0,
+        total_kills: p.kills ?? 0,
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.total_rp - a.total_rp);
+}
+
+// ─── Team podium card ─────────────────────────────────────────────────────────
+function TeamPodiumCard({ team, rank }: { team: TeamEntry; rank: number }) {
+  const s = PODIUM_STYLE[rank - 1];
+  return (
+    <div
+      className={`flex-1 min-w-[110px] rounded-xl p-4 flex flex-col items-center gap-1.5 border ${s.cssOrder}`}
+      style={{ backgroundColor: "var(--panel)", borderColor: s.borderColor }}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: s.labelColor }}>
+        {s.label}
+      </span>
+      <TeamLogo team={team.team_name} size={38} />
+      <span className="text-sm font-bold text-center leading-tight w-full truncate" style={{ color: "var(--text)" }}>
+        {team.team_name}
+      </span>
+      <span className="text-xl font-black tabular-nums mt-0.5" style={{ color: s.rpColor }}>
+        {team.total_rp.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
 // ─── Sort ─────────────────────────────────────────────────────────────────────
 type SortKey = "current_rp" | "rounds_played" | "kills" | "avg_damage";
 
@@ -229,6 +280,7 @@ interface Props {
 }
 
 export default function Leaderboard({ entries }: Props) {
+  const [viewMode,       setViewMode      ] = useState<"player" | "team">("player");
   const [query,          setQuery         ] = useState("");
   const [sortKey,        setSortKey       ] = useState<SortKey | null>(null);
   const [expandedIds,    setExpandedIds   ] = useState<Set<string>>(new Set());
@@ -236,34 +288,53 @@ export default function Leaderboard({ entries }: Props) {
   const [historyLoading, setHistoryLoading] = useState<Set<string>>(new Set());
   const cache = useRef<Map<string, HP[]>>(new Map());
 
-  const ranked   = entries.filter(e => e.current_rp != null);
-  const unranked = entries.filter(e => e.current_rp == null);
+  const ranked   = useMemo(() => entries.filter(e => e.current_rp != null), [entries]);
+  const unranked = useMemo(() => entries.filter(e => e.current_rp == null), [entries]);
 
-  const rpRank = new Map(ranked.map((e, i) => [e.id, i + 1]));
+  const rpRank = useMemo(() => new Map(ranked.map((e, i) => [e.id, i + 1])), [ranked]);
 
-  const latestUpdate = entries.reduce<string | null>((max, e) => {
+  const latestUpdate = useMemo(() => entries.reduce<string | null>((max, e) => {
     if (!e.fetched_at) return max;
     return !max || e.fetched_at > max ? e.fetched_at : max;
-  }, null);
+  }, null), [entries]);
 
-  const q = query.toLowerCase();
-  const filtered = ranked.filter(e =>
-    !q || e.player_name.toLowerCase().includes(q) || e.team_name.toLowerCase().includes(q)
-  );
+  // ─── Player mode derivations ───────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const tq = query.toLowerCase();
+    return ranked.filter(e =>
+      !tq || e.player_name.toLowerCase().includes(tq) || e.team_name.toLowerCase().includes(tq)
+    );
+  }, [ranked, query]);
 
-  const sorted = sortKey
-    ? [...filtered].sort((a, b) => {
-        let av: number, bv: number;
-        if (sortKey === "avg_damage") {
-          av = a.damage_dealt && a.rounds_played ? a.damage_dealt / a.rounds_played : 0;
-          bv = b.damage_dealt && b.rounds_played ? b.damage_dealt / b.rounds_played : 0;
-        } else {
-          av = (a[sortKey] as number | null) ?? 0;
-          bv = (b[sortKey] as number | null) ?? 0;
-        }
-        return bv - av;
-      })
-    : filtered;
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let av: number, bv: number;
+      if (sortKey === "avg_damage") {
+        av = a.damage_dealt && a.rounds_played ? a.damage_dealt / a.rounds_played : 0;
+        bv = b.damage_dealt && b.rounds_played ? b.damage_dealt / b.rounds_played : 0;
+      } else {
+        av = (a[sortKey] as number | null) ?? 0;
+        bv = (b[sortKey] as number | null) ?? 0;
+      }
+      return bv - av;
+    });
+  }, [filtered, sortKey]);
+
+  // ─── Team mode derivations ─────────────────────────────────────────────────
+  const teamEntries = useMemo(() => aggregateByTeam(ranked), [ranked]);
+
+  const teamFiltered = useMemo(() => {
+    const tq = query.toLowerCase();
+    if (!tq) return teamEntries;
+    return teamEntries.filter(t => t.team_name.toLowerCase().includes(tq));
+  }, [teamEntries, query]);
+
+  const switchMode = (mode: "player" | "team") => {
+    setViewMode(mode);
+    setQuery("");
+    setSortKey(null);
+  };
 
   const toggleSort = (key: SortKey) => setSortKey(prev => (prev === key ? null : key));
 
@@ -317,24 +388,65 @@ export default function Leaderboard({ entries }: Props) {
             )}
           </div>
         </div>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="선수·팀 검색"
-          className="rounded-lg px-3 py-1.5 text-sm focus:outline-none w-44 transition-colors"
-          style={{
-            backgroundColor: "var(--bg)",
-            border: "1px solid var(--line)",
-            color: "var(--text)",
-          }}
-        />
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* ── View mode toggle ── */}
+          <div
+            className="inline-flex rounded-lg p-0.5 relative select-none"
+            style={{ backgroundColor: "var(--panel-2)", border: "1px solid var(--line)" }}
+          >
+            {/* Sliding indicator */}
+            <span
+              className="absolute top-0.5 bottom-0.5 w-14 rounded-md pointer-events-none transition-transform duration-200 ease-in-out"
+              style={{
+                backgroundColor: "var(--accent)",
+                left: "2px",
+                transform: viewMode === "team" ? "translateX(56px)" : "translateX(0)",
+              }}
+              aria-hidden="true"
+            />
+            <button
+              onClick={() => switchMode("player")}
+              className="relative z-10 w-14 py-1.5 text-sm font-semibold transition-colors duration-200"
+              style={{ color: viewMode === "player" ? "var(--panel)" : "var(--muted)" }}
+            >
+              선수
+            </button>
+            <button
+              onClick={() => switchMode("team")}
+              className="relative z-10 w-14 py-1.5 text-sm font-semibold transition-colors duration-200"
+              style={{ color: viewMode === "team" ? "var(--panel)" : "var(--muted)" }}
+            >
+              팀
+            </button>
+          </div>
+
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={viewMode === "player" ? "선수·팀 검색" : "팀 검색"}
+            className="rounded-lg px-3 py-1.5 text-sm focus:outline-none w-44 transition-colors"
+            style={{
+              backgroundColor: "var(--bg)",
+              border: "1px solid var(--line)",
+              color: "var(--text)",
+            }}
+          />
+        </div>
       </div>
 
       {/* ── Podium ── */}
-      {ranked.length >= 3 && !query && (
+      {viewMode === "player" && ranked.length >= 3 && !query && (
         <div className="flex gap-3">
           {([ranked[0], ranked[1], ranked[2]] as LeaderboardEntry[]).map((e, i) => (
             <PodiumCard key={e.id} entry={e} rank={i + 1} />
+          ))}
+        </div>
+      )}
+      {viewMode === "team" && teamEntries.length >= 3 && !query && (
+        <div className="flex gap-3">
+          {([teamEntries[0], teamEntries[1], teamEntries[2]] as TeamEntry[]).map((t, i) => (
+            <TeamPodiumCard key={t.team_name} team={t} rank={i + 1} />
           ))}
         </div>
       )}
@@ -343,191 +455,264 @@ export default function Leaderboard({ entries }: Props) {
       <div className="rounded-xl border overflow-hidden"
         style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
-            <thead className="sticky top-0 z-10" style={{ backgroundColor: "var(--panel)" }}>
-              <tr className="text-xs uppercase tracking-wider border-b"
-                style={{ borderColor: "var(--line)" }}>
-                <th className="px-4 py-3 text-left w-14" style={{ color: "var(--faint)" }}>#</th>
-                <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>선수</th>
-                <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>티어</th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => toggleSort("current_rp")}
-                    className="hover:opacity-80 transition-opacity"
-                    style={{ color: sortKey === "current_rp" ? "var(--accent)" : "var(--faint)" }}
-                  >
-                    RP{sortKey === "current_rp" ? " ↓" : ""}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">
-                  <button
-                    onClick={() => toggleSort("rounds_played")}
-                    className="hover:opacity-80 transition-opacity"
-                    style={{ color: sortKey === "rounds_played" ? "var(--accent)" : "var(--faint)" }}
-                  >
-                    게임{sortKey === "rounds_played" ? " ↓" : ""}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">
-                  <button
-                    onClick={() => toggleSort("kills")}
-                    className="hover:opacity-80 transition-opacity"
-                    style={{ color: sortKey === "kills" ? "var(--accent)" : "var(--faint)" }}
-                  >
-                    킬{sortKey === "kills" ? " ↓" : ""}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">
-                  <button
-                    onClick={() => toggleSort("avg_damage")}
-                    className="hover:opacity-80 transition-opacity"
-                    style={{ color: sortKey === "avg_damage" ? "var(--accent)" : "var(--faint)" }}
-                  >
-                    평뎀{sortKey === "avg_damage" ? " ↓" : ""}
-                  </button>
-                </th>
-                <th className="px-4 py-3 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(entry => {
-                const rank    = rpRank.get(entry.id) ?? 0;
-                const pid     = entry.pubg_player_id ?? "";
-                const open    = expandedIds.has(pid);
-                const loading = historyLoading.has(pid);
-                const history = historyData.get(pid) ?? null;
-                const cfg     = getTier(entry.current_tier);
 
-                return (
-                  <React.Fragment key={entry.id}>
+          {/* Player mode table */}
+          {viewMode === "player" && (
+            <table className="w-full text-sm min-w-[480px]">
+              <thead className="sticky top-0 z-10" style={{ backgroundColor: "var(--panel)" }}>
+                <tr className="text-xs uppercase tracking-wider border-b"
+                  style={{ borderColor: "var(--line)" }}>
+                  <th className="px-4 py-3 text-left w-14" style={{ color: "var(--faint)" }}>#</th>
+                  <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>선수</th>
+                  <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>티어</th>
+                  <th className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => toggleSort("current_rp")}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{ color: sortKey === "current_rp" ? "var(--accent)" : "var(--faint)" }}
+                    >
+                      RP{sortKey === "current_rp" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right hidden sm:table-cell">
+                    <button
+                      onClick={() => toggleSort("rounds_played")}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{ color: sortKey === "rounds_played" ? "var(--accent)" : "var(--faint)" }}
+                    >
+                      게임{sortKey === "rounds_played" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right hidden sm:table-cell">
+                    <button
+                      onClick={() => toggleSort("kills")}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{ color: sortKey === "kills" ? "var(--accent)" : "var(--faint)" }}
+                    >
+                      킬{sortKey === "kills" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right hidden sm:table-cell">
+                    <button
+                      onClick={() => toggleSort("avg_damage")}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{ color: sortKey === "avg_damage" ? "var(--accent)" : "var(--faint)" }}
+                    >
+                      평뎀{sortKey === "avg_damage" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(entry => {
+                  const rank    = rpRank.get(entry.id) ?? 0;
+                  const pid     = entry.pubg_player_id ?? "";
+                  const open    = expandedIds.has(pid);
+                  const loading = historyLoading.has(pid);
+                  const history = historyData.get(pid) ?? null;
+                  const cfg     = getTier(entry.current_tier);
+
+                  return (
+                    <React.Fragment key={entry.id}>
+                      <tr
+                        onClick={() => toggleExpand(entry)}
+                        className="border-b transition-colors cursor-pointer"
+                        style={{
+                          borderColor: "var(--line-soft)",
+                          backgroundColor: open ? "var(--panel-2)" : undefined,
+                        }}
+                        onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
+                        onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
+                      >
+                        {/* # */}
+                        <td className="px-4 py-3">
+                          <div className={`font-bold tabular-nums leading-tight ${rank <= 3 ? "text-base" : "text-sm"}`}
+                            style={{ color: rank <= 3 ? "var(--accent)" : "var(--faint)" }}>
+                            #{rank}
+                          </div>
+                          <div className="mt-0.5">
+                            <RankChange prev={entry.previous_rank} curr={rank} />
+                          </div>
+                        </td>
+
+                        {/* Player & team */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <TeamLogo team={entry.team_name} size={24} />
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm leading-tight" style={{ color: "var(--text)" }}>
+                                {entry.player_name}
+                              </div>
+                              <div className="text-[10px] truncate max-w-[100px]" style={{ color: "var(--faint)" }}>
+                                {entry.team_name}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tier */}
+                        <td className="px-4 py-3">
+                          <TierBadge tier={entry.current_tier} />
+                          {entry.best_tier && (
+                            <div className="text-[9px] mt-0.5 whitespace-nowrap" style={{ color: "var(--faint)" }}>
+                              최고 {entry.best_tier}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* RP */}
+                        <td className="px-4 py-3 text-right">
+                          <div className={`font-black text-base tabular-nums ${rank > 3 ? (cfg?.text ?? "") : ""}`}
+                            style={{ color: rank <= 3 ? "var(--accent)" : (cfg ? undefined : "var(--text)") }}
+                          >
+                            {entry.current_rp?.toLocaleString()}
+                          </div>
+                          {entry.best_rp != null && (
+                            <div className="text-[9px] mt-0.5 tabular-nums" style={{ color: "var(--faint)" }}>
+                              최고 {entry.best_rp.toLocaleString()}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Games */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                          style={{ color: "var(--muted)" }}>
+                          {entry.rounds_played ?? "—"}
+                        </td>
+
+                        {/* Kills */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                          style={{ color: "var(--muted)" }}>
+                          {entry.kills ?? "—"}
+                        </td>
+
+                        {/* Avg damage */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                          style={{ color: "var(--muted)" }}>
+                          {avgDmg(entry.damage_dealt, entry.rounds_played)}
+                        </td>
+
+                        {/* Chevron */}
+                        <td className="px-4 py-3">
+                          <svg
+                            viewBox="0 0 24 24" width={14} height={14}
+                            className={`transition-transform duration-200 ml-auto ${open ? "rotate-180" : ""}`}
+                            fill="none" stroke="currentColor" strokeWidth={2.5}
+                            style={{ color: "var(--faint)" }}
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </td>
+                      </tr>
+
+                      {/* Expand */}
+                      {open && (
+                        <tr className="border-b" style={{ borderColor: "var(--line-soft)", backgroundColor: "var(--panel-2)" }}>
+                          <td colSpan={8} className="px-6 py-4">
+                            {loading ? (
+                              <div className="flex items-center gap-2 text-sm py-2" style={{ color: "var(--faint)" }}>
+                                <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                </svg>
+                                불러오는 중...
+                              </div>
+                            ) : history && history.length > 0 ? (
+                              <RPChart data={history} lineColor={cfg?.line ?? "#2E6FB0"} />
+                            ) : (
+                              <p className="text-sm text-center py-2" style={{ color: "var(--faint)" }}>
+                                추이 데이터가 아직 없습니다
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-4 mt-3 text-xs sm:hidden" style={{ color: "var(--faint)" }}>
+                              <span>게임 {entry.rounds_played ?? "—"}</span>
+                              <span>킬 {entry.kills ?? "—"}</span>
+                              <span>평뎀 {avgDmg(entry.damage_dealt, entry.rounds_played)}</span>
+                              {entry.wins != null && <span>승리 {entry.wins}</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {/* Team mode table */}
+          {viewMode === "team" && (
+            <table className="w-full text-sm min-w-[320px]">
+              <thead className="sticky top-0 z-10" style={{ backgroundColor: "var(--panel)" }}>
+                <tr className="text-xs uppercase tracking-wider border-b"
+                  style={{ borderColor: "var(--line)" }}>
+                  <th className="px-4 py-3 text-left w-14" style={{ color: "var(--faint)" }}>#</th>
+                  <th className="px-4 py-3 text-left" style={{ color: "var(--faint)" }}>팀</th>
+                  <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>RP</th>
+                  <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>게임</th>
+                  <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>킬</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamFiltered.map((team, idx) => {
+                  const rank = idx + 1;
+                  return (
                     <tr
-                      onClick={() => toggleExpand(entry)}
-                      className="border-b transition-colors cursor-pointer"
-                      style={{
-                        borderColor: "var(--line-soft)",
-                        backgroundColor: open ? "var(--panel-2)" : undefined,
-                      }}
-                      onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
-                      onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
+                      key={team.team_name}
+                      className="border-b last:border-0 transition-colors"
+                      style={{ borderColor: "var(--line-soft)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
                     >
                       {/* # */}
                       <td className="px-4 py-3">
-                        <div className={`font-bold tabular-nums leading-tight ${rank <= 3 ? "text-base" : "text-sm"}`}
+                        <div className={`font-bold tabular-nums ${rank <= 3 ? "text-base" : "text-sm"}`}
                           style={{ color: rank <= 3 ? "var(--accent)" : "var(--faint)" }}>
                           #{rank}
                         </div>
-                        <div className="mt-0.5">
-                          <RankChange prev={entry.previous_rank} curr={rank} />
-                        </div>
                       </td>
 
-                      {/* Player & team */}
+                      {/* Team */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <TeamLogo team={entry.team_name} size={24} />
-                          <div className="min-w-0">
-                            <div className="font-semibold text-sm leading-tight" style={{ color: "var(--text)" }}>
-                              {entry.player_name}
-                            </div>
-                            <div className="text-[10px] truncate max-w-[100px]" style={{ color: "var(--faint)" }}>
-                              {entry.team_name}
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-2.5">
+                          <TeamLogo team={team.team_name} size={28} />
+                          <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>
+                            {team.team_name}
+                          </span>
                         </div>
-                      </td>
-
-                      {/* Tier */}
-                      <td className="px-4 py-3">
-                        <TierBadge tier={entry.current_tier} />
-                        {entry.best_tier && (
-                          <div className="text-[9px] mt-0.5 whitespace-nowrap" style={{ color: "var(--faint)" }}>
-                            최고 {entry.best_tier}
-                          </div>
-                        )}
                       </td>
 
                       {/* RP */}
                       <td className="px-4 py-3 text-right">
-                        <div className={`font-black text-base tabular-nums ${rank > 3 ? (cfg?.text ?? "") : ""}`}
-                          style={{ color: rank <= 3 ? "var(--accent)" : (cfg ? undefined : "var(--text)") }}
-                        >
-                          {entry.current_rp?.toLocaleString()}
-                        </div>
-                        {entry.best_rp != null && (
-                          <div className="text-[9px] mt-0.5 tabular-nums" style={{ color: "var(--faint)" }}>
-                            최고 {entry.best_rp.toLocaleString()}
-                          </div>
-                        )}
+                        <span className="font-black text-base tabular-nums"
+                          style={{ color: rank <= 3 ? "var(--accent)" : "var(--text)" }}>
+                          {team.total_rp.toLocaleString()}
+                        </span>
                       </td>
 
                       {/* Games */}
-                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                      <td className="px-4 py-3 text-right text-xs tabular-nums"
                         style={{ color: "var(--muted)" }}>
-                        {entry.rounds_played ?? "—"}
+                        {team.total_games}
                       </td>
 
                       {/* Kills */}
-                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                      <td className="px-4 py-3 text-right text-xs tabular-nums"
                         style={{ color: "var(--muted)" }}>
-                        {entry.kills ?? "—"}
-                      </td>
-
-                      {/* Avg damage */}
-                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
-                        style={{ color: "var(--muted)" }}>
-                        {avgDmg(entry.damage_dealt, entry.rounds_played)}
-                      </td>
-
-                      {/* Chevron */}
-                      <td className="px-4 py-3">
-                        <svg
-                          viewBox="0 0 24 24" width={14} height={14}
-                          className={`transition-transform duration-200 ml-auto ${open ? "rotate-180" : ""}`}
-                          fill="none" stroke="currentColor" strokeWidth={2.5}
-                          style={{ color: "var(--faint)" }}
-                        >
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
+                        {team.total_kills}
                       </td>
                     </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
 
-                    {/* Expand */}
-                    {open && (
-                      <tr className="border-b" style={{ borderColor: "var(--line-soft)", backgroundColor: "var(--panel-2)" }}>
-                        <td colSpan={8} className="px-6 py-4">
-                          {loading ? (
-                            <div className="flex items-center gap-2 text-sm py-2" style={{ color: "var(--faint)" }}>
-                              <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                              </svg>
-                              불러오는 중...
-                            </div>
-                          ) : history && history.length > 0 ? (
-                            <RPChart data={history} lineColor={cfg?.line ?? "#2E6FB0"} />
-                          ) : (
-                            <p className="text-sm text-center py-2" style={{ color: "var(--faint)" }}>
-                              추이 데이터가 아직 없습니다
-                            </p>
-                          )}
-                          <div className="flex flex-wrap gap-4 mt-3 text-xs sm:hidden" style={{ color: "var(--faint)" }}>
-                            <span>게임 {entry.rounds_played ?? "—"}</span>
-                            <span>킬 {entry.kills ?? "—"}</span>
-                            <span>평뎀 {avgDmg(entry.damage_dealt, entry.rounds_played)}</span>
-                            {entry.wins != null && <span>승리 {entry.wins}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </div>
 
-      {/* ── Unranked ── */}
-      {unranked.length > 0 && !query && (
+      {/* ── Unranked (player mode only) ── */}
+      {viewMode === "player" && unranked.length > 0 && !query && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--faint)" }}>
             미배치 · 이번 시즌 랭크 기록 없음
