@@ -318,8 +318,8 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
 
 // ─── Season label ─────────────────────────────────────────────────────────────
 function formatSeason(s: string): string {
-  const m = s.match(/(?:pc-)?(\d{4})-(\d{2})$/);
-  if (m) return `${m[1]} 시즌 ${parseInt(m[2])}`;
+  const m = s.match(/(\d+)$/);
+  if (m) return `${parseInt(m[1])}시즌`;
   return s;
 }
 
