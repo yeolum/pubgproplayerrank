@@ -52,7 +52,16 @@ export async function upsertPlayerRecord(record: DbPlayerRecord) {
 
 // ── 리더보드 ─────────────────────────────────────────────
 
-export async function getLeaderboard(mode = "squad"): Promise<LeaderboardEntry[]> {
+export async function getSeasons(): Promise<string[]> {
+  const { data } = await getSupabase()
+    .from("Steam_player_ranks")
+    .select("season");
+  if (!data?.length) return [];
+  const uniq = Array.from(new Set((data as { season: string }[]).map(r => r.season)));
+  return uniq.sort().reverse();
+}
+
+export async function getLeaderboard(mode = "squad", season?: string): Promise<LeaderboardEntry[]> {
   const { data: rawPlayers, error: pe } = await getSupabase()
     .from("Steam_players")
     .select("id, team_name, player_name, pubg_player_id, steam_username, is_active, created_at, updated_at")
@@ -72,12 +81,15 @@ export async function getLeaderboard(mode = "squad"): Promise<LeaderboardEntry[]
   const rankMap = new Map<string, DbPlayerRecord>();
 
   if (pubgIds.length > 0) {
-    const { data: rawRanks } = await getSupabase()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let rankQ: any = getSupabase()
       .from("Steam_player_ranks")
       .select("*")
       .eq("mode", mode)
       .in("player_id", pubgIds)
       .order("fetched_at", { ascending: false });
+    if (season) rankQ = rankQ.eq("season", season);
+    const { data: rawRanks } = await rankQ;
 
     for (const r of (rawRanks ?? []) as DbPlayerRecord[]) {
       if (!rankMap.has(r.player_id)) rankMap.set(r.player_id, r);

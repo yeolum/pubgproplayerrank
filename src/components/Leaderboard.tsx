@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useMemo, useId } from "react";
 import { createClient } from "@supabase/supabase-js";
-import type { LeaderboardEntry } from "@/types";
+import type { LeaderboardEntry, DbPlayerRecord } from "@/types";
 
 // ─── Supabase anon client (read-only, lazy) ───────────────────────────────────
 let _sb: ReturnType<typeof createClient> | null = null;
@@ -316,6 +316,13 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
   );
 }
 
+// ─── Season label ─────────────────────────────────────────────────────────────
+function formatSeason(s: string): string {
+  const m = s.match(/(?:pc-)?(\d{4})-(\d{2})$/);
+  if (m) return `${m[1]} 시즌 ${parseInt(m[2])}`;
+  return s;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avgDmg(dmg: number | null, rounds: number | null) {
   if (!dmg || !rounds || rounds === 0) return "—";
@@ -423,9 +430,11 @@ type SortKey = "current_rp" | "rounds_played" | "kills" | "avg_damage";
 // ─── Main ─────────────────────────────────────────────────────────────────────
 interface Props {
   entries: LeaderboardEntry[];
+  seasons: string[];
+  currentSeason: string | null;
 }
 
-export default function Leaderboard({ entries }: Props) {
+export default function Leaderboard({ entries, seasons, currentSeason }: Props) {
   const [viewMode,       setViewMode      ] = useState<"player" | "team">("player");
   const [query,          setQuery         ] = useState("");
   const [sortKey,        setSortKey       ] = useState<SortKey | null>(null);
@@ -435,15 +444,21 @@ export default function Leaderboard({ entries }: Props) {
   const [historyLoading, setHistoryLoading] = useState<Set<string>>(new Set());
   const cache = useRef<Map<string, HP[]>>(new Map());
 
-  const ranked   = useMemo(() => entries.filter(e => e.current_rp != null), [entries]);
-  const unranked = useMemo(() => entries.filter(e => e.current_rp == null), [entries]);
+  const [selectedSeason,  setSelectedSeason ] = useState<string>(currentSeason ?? "");
+  const [seasonEntries,   setSeasonEntries  ] = useState<LeaderboardEntry[] | null>(null);
+  const [seasonLoading,   setSeasonLoading  ] = useState(false);
+
+  const activeEntries = seasonEntries ?? entries;
+
+  const ranked   = useMemo(() => activeEntries.filter(e => e.current_rp != null), [activeEntries]);
+  const unranked = useMemo(() => activeEntries.filter(e => e.current_rp == null), [activeEntries]);
 
   const rpRank = useMemo(() => new Map(ranked.map((e, i) => [e.id, i + 1])), [ranked]);
 
-  const latestUpdate = useMemo(() => entries.reduce<string | null>((max, e) => {
+  const latestUpdate = useMemo(() => activeEntries.reduce<string | null>((max, e) => {
     if (!e.fetched_at) return max;
     return !max || e.fetched_at > max ? e.fetched_at : max;
-  }, null), [entries]);
+  }, null), [activeEntries]);
 
   // ─── Player mode derivations ───────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -493,6 +508,59 @@ export default function Leaderboard({ entries }: Props) {
 
   const toggleSort = (key: SortKey) => setSortKey(prev => (prev === key ? null : key));
 
+  const changeSeason = useCallback(async (season: string) => {
+    setSelectedSeason(season);
+    setExpandedIds(new Set());
+    setExpandedTeams(new Set());
+    if (season === (currentSeason ?? "")) {
+      setSeasonEntries(null);
+      return;
+    }
+    setSeasonLoading(true);
+    try {
+      const pubgIds = entries.map(p => p.pubg_player_id).filter(Boolean) as string[];
+      const rankMap = new Map<string, DbPlayerRecord>();
+      if (pubgIds.length > 0) {
+        const { data: rawRanks } = await getSB()
+          .from("Steam_player_ranks")
+          .select("*")
+          .eq("mode", "squad")
+          .in("player_id", pubgIds)
+          .eq("season", season)
+          .order("fetched_at", { ascending: false });
+        for (const r of (rawRanks ?? []) as DbPlayerRecord[]) {
+          if (!rankMap.has(r.player_id)) rankMap.set(r.player_id, r);
+        }
+      }
+      const merged: LeaderboardEntry[] = entries.map(p => {
+        const rank = p.pubg_player_id ? rankMap.get(p.pubg_player_id) ?? null : null;
+        return {
+          ...p,
+          current_rp:    rank?.current_rp    ?? null,
+          best_rp:       rank?.best_rp       ?? null,
+          current_tier:  rank?.current_tier  ?? null,
+          best_tier:     rank?.best_tier     ?? null,
+          rounds_played: rank?.rounds_played ?? null,
+          wins:          rank?.wins          ?? null,
+          kills:         rank?.kills         ?? null,
+          damage_dealt:  rank?.damage_dealt  ?? null,
+          season:        rank?.season        ?? null,
+          fetched_at:    rank?.fetched_at    ?? null,
+          previous_rank: rank?.previous_rank ?? null,
+        };
+      });
+      merged.sort((a, b) => {
+        if (a.current_rp === null && b.current_rp === null) return 0;
+        if (a.current_rp === null) return 1;
+        if (b.current_rp === null) return -1;
+        return b.current_rp - a.current_rp;
+      });
+      setSeasonEntries(merged);
+    } finally {
+      setSeasonLoading(false);
+    }
+  }, [currentSeason, entries]);
+
   const toggleExpand = useCallback(async (entry: LeaderboardEntry) => {
     const pid = entry.pubg_player_id;
     if (!pid) return;
@@ -536,8 +604,38 @@ export default function Leaderboard({ entries }: Props) {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black" style={{ color: "var(--text)" }}>경쟁전 리더보드</h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="text-xs tracking-wide" style={{ color: "var(--faint)" }}>스쿼드 · TPP</span>
+            {seasons.length > 1 && (
+              <div className="relative flex items-center">
+                <select
+                  value={selectedSeason}
+                  onChange={e => changeSeason(e.target.value)}
+                  disabled={seasonLoading}
+                  className="text-xs pl-2 pr-6 py-0.5 rounded appearance-none focus:outline-none cursor-pointer"
+                  style={{
+                    backgroundColor: "var(--panel-2)",
+                    border: "1px solid var(--line)",
+                    color: seasonLoading ? "var(--faint)" : "var(--muted)",
+                  }}
+                >
+                  {seasons.map(s => (
+                    <option key={s} value={s}>{formatSeason(s)}</option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width={10} height={10}
+                  className="absolute right-1.5 pointer-events-none"
+                  fill="none" stroke="currentColor" strokeWidth={2.5}
+                  style={{ color: "var(--faint)" }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+            )}
+            {seasonLoading && (
+              <svg className="animate-spin w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ color: "var(--faint)" }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              </svg>
+            )}
             {latestUpdate && (
               <span className="text-xs" style={{ color: "var(--faint)" }}>{relTime(latestUpdate)} 갱신</span>
             )}
