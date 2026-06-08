@@ -112,8 +112,24 @@ function RankChange({ prev, curr }: { prev: number | null; curr: number }) {
 type HP = { current_rp: number; recorded_at: string };
 
 function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
-  if (data.length < 2) {
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
+
+  if (data.length === 0) {
     return <p className="text-sm text-center py-4" style={{ color: "var(--faint)" }}>추이 데이터가 아직 없습니다</p>;
+  }
+
+  if (data.length === 1) {
+    return (
+      <div className="flex items-center gap-3 py-2 text-xs">
+        <span className="font-bold tabular-nums" style={{ color: lineColor, fontSize: 15 }}>
+          {data[0].current_rp.toLocaleString()} RP
+        </span>
+        <span style={{ color: "var(--faint)" }}>
+          {fmtDate(data[0].recorded_at)} 기준 · 데이터 1건
+        </span>
+      </div>
+    );
   }
 
   const W = 560, H = 90;
@@ -136,8 +152,6 @@ function RPChart({ data, lineColor }: { data: HP[]; lineColor: string }) {
     .join(" ");
 
   const delta = rps[rps.length - 1] - rps[0];
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
 
   return (
     <div>
@@ -284,6 +298,7 @@ export default function Leaderboard({ entries }: Props) {
   const [query,          setQuery         ] = useState("");
   const [sortKey,        setSortKey       ] = useState<SortKey | null>(null);
   const [expandedIds,    setExpandedIds   ] = useState<Set<string>>(new Set());
+  const [expandedTeams,  setExpandedTeams ] = useState<Set<string>>(new Set());
   const [historyData,    setHistoryData   ] = useState<Map<string, HP[]>>(new Map());
   const [historyLoading, setHistoryLoading] = useState<Set<string>>(new Set());
   const cache = useRef<Map<string, HP[]>>(new Map());
@@ -334,6 +349,14 @@ export default function Leaderboard({ entries }: Props) {
     setViewMode(mode);
     setQuery("");
     setSortKey(null);
+  };
+
+  const toggleTeamExpand = (teamName: string) => {
+    setExpandedTeams(prev => {
+      const next = new Set(prev);
+      next.has(teamName) ? next.delete(teamName) : next.add(teamName);
+      return next;
+    });
   };
 
   const toggleSort = (key: SortKey) => setSortKey(prev => (prev === key ? null : key));
@@ -651,57 +674,111 @@ export default function Leaderboard({ entries }: Props) {
                   <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>RP</th>
                   <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>게임</th>
                   <th className="px-4 py-3 text-right" style={{ color: "var(--faint)" }}>킬</th>
+                  <th className="px-4 py-3 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {teamFiltered.map((team, idx) => {
-                  const rank = idx + 1;
+                  const rank     = idx + 1;
+                  const teamOpen = expandedTeams.has(team.team_name);
+                  const members  = ranked
+                    .filter(p => p.team_name === team.team_name && p.current_rp != null)
+                    .sort((a, b) => (b.current_rp ?? 0) - (a.current_rp ?? 0));
+
                   return (
-                    <tr
-                      key={team.team_name}
-                      className="border-b last:border-0 transition-colors"
-                      style={{ borderColor: "var(--line-soft)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
-                    >
-                      {/* # */}
-                      <td className="px-4 py-3">
-                        <div className={`font-bold tabular-nums ${rank <= 3 ? "text-base" : "text-sm"}`}
-                          style={{ color: rank <= 3 ? "var(--accent)" : "var(--faint)" }}>
-                          #{rank}
-                        </div>
-                      </td>
+                    <React.Fragment key={team.team_name}>
+                      <tr
+                        onClick={() => toggleTeamExpand(team.team_name)}
+                        className="border-b transition-colors cursor-pointer"
+                        style={{
+                          borderColor: "var(--line-soft)",
+                          backgroundColor: teamOpen ? "var(--panel-2)" : undefined,
+                        }}
+                        onMouseEnter={e => { if (!teamOpen) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--panel-2)"; }}
+                        onMouseLeave={e => { if (!teamOpen) (e.currentTarget as HTMLElement).style.backgroundColor = ""; }}
+                      >
+                        {/* # */}
+                        <td className="px-4 py-3">
+                          <div className={`font-bold tabular-nums ${rank <= 3 ? "text-base" : "text-sm"}`}
+                            style={{ color: rank <= 3 ? "var(--accent)" : "var(--faint)" }}>
+                            #{rank}
+                          </div>
+                        </td>
 
-                      {/* Team */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <TeamLogo team={team.team_name} size={28} />
-                          <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>
-                            {team.team_name}
+                        {/* Team */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <TeamLogo team={team.team_name} size={28} />
+                            <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>
+                              {team.team_name}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* RP */}
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-black text-base tabular-nums"
+                            style={{ color: rank <= 3 ? "var(--accent)" : "var(--text)" }}>
+                            {team.total_rp.toLocaleString()}
                           </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* RP */}
-                      <td className="px-4 py-3 text-right">
-                        <span className="font-black text-base tabular-nums"
-                          style={{ color: rank <= 3 ? "var(--accent)" : "var(--text)" }}>
-                          {team.total_rp.toLocaleString()}
-                        </span>
-                      </td>
+                        {/* Games */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums"
+                          style={{ color: "var(--muted)" }}>
+                          {team.total_games}
+                        </td>
 
-                      {/* Games */}
-                      <td className="px-4 py-3 text-right text-xs tabular-nums"
-                        style={{ color: "var(--muted)" }}>
-                        {team.total_games}
-                      </td>
+                        {/* Kills */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums"
+                          style={{ color: "var(--muted)" }}>
+                          {team.total_kills}
+                        </td>
 
-                      {/* Kills */}
-                      <td className="px-4 py-3 text-right text-xs tabular-nums"
-                        style={{ color: "var(--muted)" }}>
-                        {team.total_kills}
-                      </td>
-                    </tr>
+                        {/* Chevron */}
+                        <td className="px-4 py-3">
+                          <svg
+                            viewBox="0 0 24 24" width={14} height={14}
+                            className={`transition-transform duration-200 ml-auto ${teamOpen ? "rotate-180" : ""}`}
+                            fill="none" stroke="currentColor" strokeWidth={2.5}
+                            style={{ color: "var(--faint)" }}
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </td>
+                      </tr>
+
+                      {/* Team expand — member list */}
+                      {teamOpen && (
+                        <tr className="border-b" style={{ borderColor: "var(--line-soft)", backgroundColor: "var(--panel-2)" }}>
+                          <td colSpan={6} className="px-6 py-3">
+                            <div className="flex flex-col">
+                              {members.map((p, i) => {
+                                const cfg = getTier(p.current_tier);
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className="flex items-center gap-3 py-1.5 border-b last:border-0"
+                                    style={{ borderColor: "var(--line-soft)" }}
+                                  >
+                                    <span className="text-xs w-4 tabular-nums text-right shrink-0" style={{ color: "var(--faint)" }}>
+                                      {i + 1}
+                                    </span>
+                                    <span className="flex-1 text-sm font-semibold" style={{ color: "var(--text)" }}>
+                                      {p.player_name}
+                                    </span>
+                                    <span className={`text-sm font-bold tabular-nums ${cfg?.text ?? ""}`}
+                                      style={{ color: cfg ? undefined : "var(--text)" }}>
+                                      {p.current_rp?.toLocaleString()}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
