@@ -16,7 +16,7 @@ function getSB() {
 // ─── Tier ────────────────────────────────────────────────────────────────────
 type TierKey =
   | "Survivor" | "Master" | "Grandmaster"
-  | "Diamond"  | "Platinum" | "Gold"
+  | "Crystal"  | "Diamond" | "Platinum" | "Gold"
   | "Silver"   | "Bronze";
 
 // bg 10%, border 30%, text 100% — 크림 배경용
@@ -24,6 +24,7 @@ const TIER: Record<TierKey, { text: string; badge: string; line: string }> = {
   Survivor:    { text: "text-[#C0392B]", badge: "text-[#C0392B] border-[rgba(192,57,43,0.3)]  bg-[rgba(192,57,43,0.1)]",   line: "#C0392B" },
   Master:      { text: "text-[#5E47A0]", badge: "text-[#5E47A0] border-[rgba(94,71,160,0.3)]  bg-[rgba(94,71,160,0.1)]",   line: "#5E47A0" },
   Grandmaster: { text: "text-[#B5651D]", badge: "text-[#B5651D] border-[rgba(181,101,29,0.3)] bg-[rgba(181,101,29,0.1)]",  line: "#B5651D" },
+  Crystal:     { text: "text-[#0E9EBF]", badge: "text-[#0E9EBF] border-[rgba(14,158,191,0.3)] bg-[rgba(14,158,191,0.1)]",  line: "#0E9EBF" },
   Diamond:     { text: "text-[#2E6FB0]", badge: "text-[#2E6FB0] border-[rgba(46,111,176,0.3)] bg-[rgba(46,111,176,0.1)]",  line: "#2E6FB0" },
   Platinum:    { text: "text-[#1A8A6E]", badge: "text-[#1A8A6E] border-[rgba(26,138,110,0.3)] bg-[rgba(26,138,110,0.1)]",  line: "#1A8A6E" },
   Gold:        { text: "text-[#9B6B0C]", badge: "text-[#9B6B0C] border-[rgba(155,107,12,0.3)] bg-[rgba(155,107,12,0.1)]",  line: "#9B6B0C" },
