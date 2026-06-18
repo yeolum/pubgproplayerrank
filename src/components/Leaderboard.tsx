@@ -330,6 +330,11 @@ function avgDmg(dmg: number | null, rounds: number | null) {
   return Math.round(dmg / rounds).toLocaleString();
 }
 
+function avgKills(kills: number | null, rounds: number | null) {
+  if (kills == null || !rounds || rounds === 0) return "—";
+  return (kills / rounds).toFixed(2);
+}
+
 function relTime(iso: string | null) {
   if (!iso) return "";
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -426,7 +431,7 @@ function TeamPodiumCard({ team, rank }: { team: TeamEntry; rank: number }) {
 }
 
 // ─── Sort ─────────────────────────────────────────────────────────────────────
-type SortKey = "current_rp" | "rounds_played" | "kills" | "avg_damage";
+type SortKey = "current_rp" | "rounds_played" | "kills" | "avg_kills" | "avg_damage";
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 interface Props {
@@ -476,6 +481,9 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
       if (sortKey === "avg_damage") {
         av = a.damage_dealt && a.rounds_played ? a.damage_dealt / a.rounds_played : 0;
         bv = b.damage_dealt && b.rounds_played ? b.damage_dealt / b.rounds_played : 0;
+      } else if (sortKey === "avg_kills") {
+        av = a.kills != null && a.rounds_played ? a.kills / a.rounds_played : 0;
+        bv = b.kills != null && b.rounds_played ? b.kills / b.rounds_played : 0;
       } else {
         av = (a[sortKey] as number | null) ?? 0;
         bv = (b[sortKey] as number | null) ?? 0;
@@ -748,11 +756,20 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                   </th>
                   <th className="px-4 py-3 text-right hidden sm:table-cell">
                     <button
+                      onClick={() => toggleSort("avg_kills")}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{ color: sortKey === "avg_kills" ? "var(--accent)" : "var(--faint)" }}
+                    >
+                      평균 킬{sortKey === "avg_kills" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right hidden sm:table-cell">
+                    <button
                       onClick={() => toggleSort("avg_damage")}
                       className="hover:opacity-80 transition-opacity"
                       style={{ color: sortKey === "avg_damage" ? "var(--accent)" : "var(--faint)" }}
                     >
-                      평뎀{sortKey === "avg_damage" ? " ↓" : ""}
+                      평균 데미지{sortKey === "avg_damage" ? " ↓" : ""}
                     </button>
                   </th>
                   <th className="px-4 py-3 w-8"></th>
@@ -841,6 +858,12 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                           {entry.kills ?? "—"}
                         </td>
 
+                        {/* Avg kills */}
+                        <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
+                          style={{ color: "var(--muted)" }}>
+                          {avgKills(entry.kills, entry.rounds_played)}
+                        </td>
+
                         {/* Avg damage */}
                         <td className="px-4 py-3 text-right text-xs tabular-nums hidden sm:table-cell"
                           style={{ color: "var(--muted)" }}>
@@ -863,7 +886,7 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                       {/* Expand */}
                       {open && (
                         <tr className="border-b" style={{ borderColor: "var(--line-soft)", backgroundColor: "var(--panel-2)" }}>
-                          <td colSpan={8} className="px-6 py-4">
+                          <td colSpan={9} className="px-6 py-4">
                             {loading ? (
                               <div className="flex items-center gap-2 text-sm py-2" style={{ color: "var(--faint)" }}>
                                 <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -881,7 +904,8 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                             <div className="flex flex-wrap gap-4 mt-3 text-xs sm:hidden" style={{ color: "var(--faint)" }}>
                               <span>게임 {entry.rounds_played ?? "—"}</span>
                               <span>킬 {entry.kills ?? "—"}</span>
-                              <span>평뎀 {avgDmg(entry.damage_dealt, entry.rounds_played)}</span>
+                              <span>평균 킬 {avgKills(entry.kills, entry.rounds_played)}</span>
+                              <span>평균 데미지 {avgDmg(entry.damage_dealt, entry.rounds_played)}</span>
                               {entry.wins != null && <span>승리 {entry.wins}</span>}
                             </div>
                           </td>
