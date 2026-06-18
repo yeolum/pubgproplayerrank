@@ -580,22 +580,30 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
       return next;
     });
 
-    if (cache.current.has(pid)) return;
+    const cacheKey = `${pid}:${selectedSeason}`;
+    if (cache.current.has(cacheKey)) {
+      setHistoryData(prev => new Map(prev).set(pid, cache.current.get(cacheKey)!));
+      return;
+    }
 
     setHistoryLoading(prev => new Set(prev).add(pid));
 
-    const { data } = await getSB()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = getSB()
       .from("rp_history")
       .select("current_rp, recorded_at")
       .eq("player_id", pid)
       .order("recorded_at", { ascending: true })
       .limit(60);
+    if (selectedSeason) q = q.eq("season", selectedSeason);
+
+    const { data } = await q;
 
     const points: HP[] = data ?? [];
-    cache.current.set(pid, points);
+    cache.current.set(cacheKey, points);
     setHistoryData(prev => new Map(prev).set(pid, points));
     setHistoryLoading(prev => { const s = new Set(prev); s.delete(pid); return s; });
-  }, []);
+  }, [selectedSeason]);
 
   if (entries.length === 0) {
     return (

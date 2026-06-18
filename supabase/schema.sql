@@ -91,11 +91,16 @@ create table if not exists "rp_history" (
   id          bigserial   primary key,
   player_id   text        not null,
   current_rp  integer     not null,
+  season      text,
   recorded_at timestamptz not null default now()
 );
 
 create index if not exists idx_rp_history_player_time
   on "rp_history" (player_id, recorded_at desc);
+
+-- season 컬럼 추가 (기존 테이블에 없을 경우)
+alter table "rp_history"
+  add column if not exists season text;
 
 alter table "rp_history" enable row level security;
 

@@ -93,9 +93,9 @@ async function snapshotRanks(season) {
 }
 
 // RP가 변경됐을 때만 rp_history에 기록
-async function insertRpHistory(playerId, currentRp) {
+async function insertRpHistory(playerId, currentRp, season) {
   const checkRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/rp_history?player_id=eq.${encodeURIComponent(playerId)}&order=recorded_at.desc&limit=1&select=current_rp`,
+    `${SUPABASE_URL}/rest/v1/rp_history?player_id=eq.${encodeURIComponent(playerId)}&season=eq.${encodeURIComponent(season)}&order=recorded_at.desc&limit=1&select=current_rp`,
     { headers: sbHeaders }
   );
   if (checkRes.ok) {
@@ -105,7 +105,7 @@ async function insertRpHistory(playerId, currentRp) {
   await fetch(`${SUPABASE_URL}/rest/v1/rp_history`, {
     method: "POST",
     headers: { ...sbHeaders, Prefer: "return=minimal" },
-    body: JSON.stringify({ player_id: playerId, current_rp: currentRp }),
+    body: JSON.stringify({ player_id: playerId, current_rp: currentRp, season }),
   });
 }
 
@@ -162,7 +162,7 @@ async function processPlayer(player, season, fetchedAt) {
     // squad TPP RP가 변경된 경우에만 rp_history 기록
     const squadRecord = records.find((r) => r.mode === "squad");
     if (squadRecord) {
-      await insertRpHistory(player.pubg_player_id, squadRecord.current_rp);
+      await insertRpHistory(player.pubg_player_id, squadRecord.current_rp, season);
     }
   }
 }
