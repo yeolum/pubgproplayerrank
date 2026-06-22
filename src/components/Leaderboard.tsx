@@ -387,25 +387,29 @@ interface TeamEntry {
   total_kills: number;
 }
 
+const TEAM_TOP_N = 4;
+
 function aggregateByTeam(players: LeaderboardEntry[]): TeamEntry[] {
-  const map = new Map<string, TeamEntry>();
+  const grouped = new Map<string, LeaderboardEntry[]>();
   for (const p of players) {
     if (p.current_rp == null) continue;
-    const prev = map.get(p.team_name);
-    if (prev) {
-      prev.total_rp    += p.current_rp;
-      prev.total_games += p.rounds_played ?? 0;
-      prev.total_kills += p.kills ?? 0;
-    } else {
-      map.set(p.team_name, {
-        team_name:   p.team_name,
-        total_rp:    p.current_rp,
-        total_games: p.rounds_played ?? 0,
-        total_kills: p.kills ?? 0,
-      });
-    }
+    const list = grouped.get(p.team_name) ?? [];
+    list.push(p);
+    grouped.set(p.team_name, list);
   }
-  return Array.from(map.values()).sort((a, b) => b.total_rp - a.total_rp);
+  const result: TeamEntry[] = [];
+  for (const [team_name, members] of grouped) {
+    const top = members
+      .sort((a, b) => (b.current_rp ?? 0) - (a.current_rp ?? 0))
+      .slice(0, TEAM_TOP_N);
+    result.push({
+      team_name,
+      total_rp:    top.reduce((s, p) => s + (p.current_rp ?? 0), 0),
+      total_games: top.reduce((s, p) => s + (p.rounds_played ?? 0), 0),
+      total_kills: top.reduce((s, p) => s + (p.kills ?? 0), 0),
+    });
+  }
+  return result.sort((a, b) => b.total_rp - a.total_rp);
 }
 
 // ─── Team podium card ─────────────────────────────────────────────────────────
@@ -1017,12 +1021,13 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                           <td colSpan={6} className="px-6 py-3">
                             <div className="flex flex-col">
                               {members.map((p, i) => {
-                                const cfg = getTier(p.current_tier);
+                                const cfg     = getTier(p.current_tier);
+                                const counted = i < TEAM_TOP_N;
                                 return (
                                   <div
                                     key={p.id}
                                     className="flex items-center gap-3 py-1.5 border-b last:border-0"
-                                    style={{ borderColor: "var(--line-soft)" }}
+                                    style={{ borderColor: "var(--line-soft)", opacity: counted ? 1 : 0.38 }}
                                   >
                                     <span className="text-xs w-4 tabular-nums text-right shrink-0" style={{ color: "var(--faint)" }}>
                                       {i + 1}
@@ -1030,6 +1035,11 @@ export default function Leaderboard({ entries, seasons, currentSeason }: Props) 
                                     <span className="flex-1 text-sm font-semibold" style={{ color: "var(--text)" }}>
                                       {p.player_name}
                                     </span>
+                                    {!counted && (
+                                      <span className="text-[10px] px-1 rounded" style={{ color: "var(--faint)", border: "1px solid var(--line)" }}>
+                                        미포함
+                                      </span>
+                                    )}
                                     <span className={`text-sm font-bold tabular-nums ${cfg?.text ?? ""}`}
                                       style={{ color: cfg ? undefined : "var(--text)" }}>
                                       {p.current_rp?.toLocaleString()}
