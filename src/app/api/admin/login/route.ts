@@ -6,18 +6,13 @@ function secret() {
 }
 
 function isValidCredential(username: string, password: string): boolean {
-  // 다중 계정: ADMIN_CREDENTIALS=[{"u":"id1","p":"pw1"},{"u":"id2","p":"pw2"}]
-  const multi = process.env.ADMIN_CREDENTIALS;
-  if (multi) {
-    try {
-      const list = JSON.parse(multi) as { u: string; p: string }[];
-      return list.some(c => c.u === username && c.p === password);
-    } catch {
-      // JSON 파싱 실패 시 단일 계정으로 폴백
-    }
-  }
-  // 단일 계정 (기존 방식)
-  return username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD;
+  // 계정 1 (기존)
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) return true;
+  // 계정 2
+  if (process.env.ADMIN_USERNAME_2 && username === process.env.ADMIN_USERNAME_2 && password === process.env.ADMIN_PASSWORD_2) return true;
+  // 계정 3
+  if (process.env.ADMIN_USERNAME_3 && username === process.env.ADMIN_USERNAME_3 && password === process.env.ADMIN_PASSWORD_3) return true;
+  return false;
 }
 
 export async function POST(req: Request) {
